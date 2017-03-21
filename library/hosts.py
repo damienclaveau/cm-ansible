@@ -1,13 +1,13 @@
 #!/usr/bin/python2
-# parcels:  Download and distribute CDH parcels
+# parcels:  Manage hosts within Cloudera manager.
 
 
 DOCUMENTATION = '''
 ---
-module: parcels
-short_description: Manage CDH parcels
+module: hosts
+short_description: Manage CM hosts
 description:
-    - Manage parcels
+    - Manage hosts
 options:
     cm_host:
       description:
@@ -34,9 +34,9 @@ options:
         - Cluster name.
       required: true
       default: null
-    parcel_version:
+    hostname:
       description:
-        - Parcel version.
+        - Host name.
       required: true
       default: null
     restart_cluster:
@@ -46,7 +46,7 @@ options:
       default: True
     action:
       descripion:
-        - Action on parcels - choices map [download, distribute]
+        - Action on host - choices map [add, delete]
       required: true
       default: null
 '''
@@ -57,8 +57,8 @@ EXAMPLES = '''
     cm_host: cm.example.com
     cm_username: admin
     cm_password: my-password
-    parcel_version:
-    action: distribute
+    hostname: ip-172-31-8-95.us-west-2.compute.internal
+    action: add
   register: cm
 
 '''
@@ -67,6 +67,7 @@ import os
 import time
 import syslog
 import sys
+import socket
 from ansible.module_utils.basic import *
 
 try:
@@ -87,11 +88,11 @@ def main():
             cm_username=dict(required=True, type='str'),
             cm_password=dict(required=True, type='str', no_log=True),
             cm_tls=dict(required=False, type='bool', default=False),
-            cm_version=dict(required=False, type='int', default=10),
             cluster_name=dict(required=False, type='str',default='cluster'),
-            parcel_version=dict(required=False, type='str'),
+            cm_version=dict(required=False, type='str',default='13'),
+            hostname=dict(required=True, type='str'),
             restart_cluster=dict(required=False, type='str',default='True'),
-            action=dict(choices=['download', 'distribute'])
+            action=dict(choices=['add', 'delete'])
         )
     )
 
@@ -102,7 +103,8 @@ def main():
     cm_tls = module.params.get('cm_tls')
     cm_version = module.params.get('cm_version')
     cluster_name = module.params.get('cluster_name')
-    parcel_version = module.params.get('parcel_version')
+    restart_cluster = module.params.get('restart_cluster')
+    hostname = module.params.get('hostname')
     action = module.params.get('action')
 
     changed = False
@@ -118,7 +120,6 @@ def main():
                                   use_tls=cm_tls,
                                   version=cm_version)
         cluster = resource.get_cluster(cluster_name)
-        parcel = cluster.get_parcel('CDH', parcel_version)
     except ApiException as e:
         module.fail_json(changed=changed,
                          msg="Can't connect to CM API: {0}".format(e))
@@ -128,48 +129,29 @@ def main():
         cluster.stop().wait()
         cluster.start().wait()
 
-    if action == "download":
+    if action == "add":
       try:
-        parcel.start_download()
-        while True:
-          parcel = cluster.get_parcel('CDH', parcel_version)
-          if parcel.stage == 'DOWNLOADED':
-            break
-          if parcel.state.errors:
-            raise Exception(str(parcel.state.errors))
-          print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
-          time.sleep(15) # check again in 15 seconds
-        print "downloaded CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
+	#hostID = "e2b55696-63c7-451f-ba98-bc71031544bc"
+	host = []
+	#host = resource.get_host(hostname)
+        #host = resource.create_host(
+        #  hostname,
+        #  hostname,
+        #  socket.gethostbyname(hostname),
+        #  "/default")
+	#time.sleep(20)
+	host.append(hostname)
+        cluster.add_hosts(host)
         module.exit_json(changed=True, rc=0)
       except Exception as e:
         module.fail_json(changed=changed, msg="{0}".format(e))
+    
+    #elif action == 'delete':
 
-    elif action == 'distribute':
-      try:
-	parcel.start_distribution()
-        while True:
-          parcel = cluster.get_parcel('CDH', parcel_version)
-	  if parcel.stage in ['DISTRIBUTED','ATVIVATED']:
-            break
-          if parcel.state.errors:
-            raise Exception(str(parcel.state.errors))
-          print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
-          time.sleep(15) # check again in 15 seconds
-        print "distributed CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
-        parcel.activate()
-	
-	if restart_cluster:
-          restart_cluster()
-        
-	module.exit_json(changed=True, rc=0)
-      except Exception as e:
-        module.fail_json(changed=changed, msg="{0}".format(e))
-
-    #if action == "create"
-    #if action == "delete"
 
     module.exit_json(changed=False, settings=cms.get_config('summary'))
 
 if __name__ == '__main__':
         main()
+
 
