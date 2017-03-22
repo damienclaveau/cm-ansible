@@ -90,7 +90,7 @@ def main():
             cm_version=dict(required=False, type='int', default=10),
             cluster_name=dict(required=False, type='str',default='cluster'),
             parcel_version=dict(required=False, type='str'),
-            restart_cluster=dict(required=False, type='str',default='True'),
+            restart_cluster=dict(required=False, type='bool',default='True'),
             action=dict(choices=['download', 'distribute'])
         )
     )
@@ -102,11 +102,11 @@ def main():
     cm_tls = module.params.get('cm_tls')
     cm_version = module.params.get('cm_version')
     cluster_name = module.params.get('cluster_name')
+    restart_cluster = module.params.get('cluster_name')
     parcel_version = module.params.get('parcel_version')
     action = module.params.get('action')
 
     changed = False
-    start_roles = True
 
     if not api_enabled:
         module.fail_json(changed=changed, msg='cm_api required for this module')
@@ -123,8 +123,7 @@ def main():
         module.fail_json(changed=changed,
                          msg="Can't connect to CM API: {0}".format(e))
 
-    def restart_cluster():
-        global cluster
+    def cluster_restart(cluster):
         cluster.stop().wait()
         cluster.start().wait()
 
@@ -138,7 +137,7 @@ def main():
           if parcel.state.errors:
             raise Exception(str(parcel.state.errors))
           print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
-          time.sleep(15) # check again in 15 seconds
+          time.sleep(5) # check again in 15 seconds
         print "downloaded CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
         module.exit_json(changed=True, rc=0)
       except Exception as e:
@@ -149,17 +148,17 @@ def main():
 	parcel.start_distribution()
         while True:
           parcel = cluster.get_parcel('CDH', parcel_version)
-	  if parcel.stage in ['DISTRIBUTED','ATVIVATED']:
+	  if str(parcel.stage) in ['DISTRIBUTED','ACTIVATED']:
             break
           if parcel.state.errors:
             raise Exception(str(parcel.state.errors))
           print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
-          time.sleep(15) # check again in 15 seconds
+          time.sleep(5) # check again in 15 seconds
         print "distributed CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
-        parcel.activate()
-	
-	if restart_cluster:
-          restart_cluster()
+        if str(parcel.stage) != 'ACTIVATED':
+		parcel.activate()
+	#if bool(restart_cluster):
+        #  cluster_restart(cluster)
         
 	module.exit_json(changed=True, rc=0)
       except Exception as e:

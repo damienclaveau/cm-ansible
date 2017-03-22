@@ -16,15 +16,26 @@
         cm_password: admin
         parcel_version: 5.8.4-1.cdh5.8.4.p0.5
         action: distribute
+        restart_cluster: False
       register: parcel
     - debug: var=parcel
 
-    - template:
+    - templates:
         cm_host: localhost
         cm_username: admin
         cm_password: admin
         hostname: ip-172-31-4-72.us-west-2.compute.internal
         template_name: DataNode
+        action: "apply"
+      register: template
+
+    - templates:
+        cm_host: localhost
+        cm_username: admin
+        cm_password: admin
+        hostname: ip-172-31-4-72.us-west-2.compute.internal
+        template_name: DataNode
+        action: "config"
       register: template
 
     - debug: var=template

@@ -70,11 +70,14 @@ from ansible.module_utils.basic import *
 try:
     from cm_api.api_client import *
     from cm_api import *
+    from cm_api.endpoints.host_templates import *
     from cm_api.endpoints.cms import ClouderaManager
-    from cm_api.endpoints.types import config_to_json, ApiConfig
+    from cm_api.endpoints.types import config_to_json, ApiConfig, ApiClusterTemplate
     api_enabled = True
 except ImportError:
     api_enabled = False
+
+CMD_TIMEOUT=10
 
 
 def main():
@@ -85,11 +88,12 @@ def main():
             cm_username=dict(required=True, type='str'),
             cm_password=dict(required=True, type='str', no_log=True),
             cm_tls=dict(required=False, type='bool', default=False),
-            cluster_name=dict(required=False, type='str',default='cluster01'),
+            cluster_name=dict(required=False, type='str',default='cluster'),
             hostname=dict(required=True, type='str'),
             template_name=dict(required=True, type='str'),
-	    restart_cluster=dict(required=False, type='str',default='True'),
-            action=dict(choices=['create', 'apply', 'delete'])
+	    cm_version=dict(required=False, type='int', default=13),
+	    redeploy_config=dict(required=False, type='bool',default='True'),
+            action=dict(choices=['create', 'apply', 'delete','config'])
         )
     )
 
@@ -101,7 +105,8 @@ def main():
     cluster_name = module.params.get('cluster_name')
     hostname = module.params.get('hostname')
     template_name = module.params.get('template_name')
-    restart_cluster = module.params.get('restart_cluster')
+    cm_version = module.params.get('cm_version')   
+    redeploy_config = module.params.get('redeploy_config')
     action = module.params.get('action')
 
     changed = False
@@ -115,30 +120,34 @@ def main():
                                   password=cm_password,
                                   use_tls=cm_tls,
                                   version=cm_version)
-        cms = ClouderaManager(api)
         cluster = resource.get_cluster(cluster_name)
-	template = ApiClusterTemplate(resource)
+	template = cluster.get_host_template(template_name)
     except ApiException as e:
         module.fail_json(changed=changed,
                          msg="Can't connect to CM API: {0}".format(e))
 
-    def restart_cluster():
-        global cluster
-        cluster.stop().wait()
-        cluster.start().wait()
+    def redeploy_client_config(cluster):
+        cluster.deploy_client_config()
 
     if action == "apply":
         try:
-          hostID = resource.get_host(hostname).hostId
-          template.apply_host_template(template_name,cluster_name,hostID,start_roles)
-	  if restart_cluster:
-          	restart_cluster()
-          module.exit_json(changed=True, rc=0)
+          host = list()
+          host.append(hostname)
+	  cmd = template.apply_host_template(host,True)
+          while True:
+                if cmd.wait(CMD_TIMEOUT).success:
+                        break
+          cluster.deploy_client_config()
+	  module.exit_json(changed=True, rc=0)
         except Exception as e:
           module.fail_json(changed=changed, msg="{0}".format(e))
 
-    #if action == "create"
-    #if action == "delete"
+    if action == "config":
+	try:
+		redeploy_client_config(cluster)
+		module.exit_json(changed=True, rc=0)
+	except Exception as e:
+		module.fail_json(changed=changed, msg="{0}".format(e))
 
     module.exit_json(changed=False, settings=cms.get_config('summary'))
 
