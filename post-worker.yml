@@ -1,0 +1,12 @@
+- name: "Configure worker instance"
+  hosts: "54.213.59.235"
+  sudo: yes
+  roles:
+    - {
+        role: prepare_host,
+        setup_cm_agent: "true",
+        setup_host_security: false,
+        setup_host_networking: false,
+        setup_host_disks: "true",
+        setup_host_commons: "true"
+      }

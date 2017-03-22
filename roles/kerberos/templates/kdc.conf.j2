@@ -1,0 +1,31 @@
+[kdcdefaults]
+ kdc_ports = 88
+ kdc_tcp_ports = 88
+
+[realms]
+ {{ iam_kdc_realm }} = {
+   #master_key_type = aes256-cts
+   max_life = 24h 0m 0s
+   max_renewable_life = 7d 0h 0m 0s
+   acl_file = /var/kerberos/krb5kdc/kadm5.acl
+   dict_file = /usr/share/dict/words
+   admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+   default_principal_flags = +renewable, +forwardable
+   supported_enctypes = aes256-cts:normal aes128-cts:normal des3-hmac-sha1:normal arcfour-hmac:normal camellia256-cts:normal camellia128-cts:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+{% if enable_krb_ldap %}
+   database_module = openldap_ldapconfbd
+{% endif %}
+ }
+{% if enable_krb_ldap %}
+
+[dbmodules]
+ openldap_ldapconfbd = {
+   db_library = kldap
+   ldap_kdc_dn = {{ iam_ldap_bind_kdc_dn }}
+   ldap_kadmind_dn = {{ iam_ldap_bind_kadm_dn }}
+   ldap_service_password_file = /var/kerberos/krb5kdc/ldap.keyfile
+   ldap_servers = ldapi://
+   ldap_kerberos_container_dn = {{ iam_ldap_kerberos_dn }}
+   ldap_conns_per_server = 5
+ }
+{% endif %}

@@ -1,0 +1,10 @@
+---
+# ---- OpenLDAP BaseDN configuration ----
+iam_ldap_user: "ldap"
+ldap_modules_path: /usr/lib64/openldap
+
+enable_ssl: true
+ldap_ssl_dir: /etc/openldap/certs
+ldap_ssl_key_file: /etc/openldap/certs/openldap.key
+ldap_ssl_csr_file: /etc/openldap/certs/openldap.csr
+ldap_ssl_crt_file: /etc/openldap/certs/openldap.crt

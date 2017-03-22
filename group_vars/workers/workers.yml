@@ -1,0 +1,10 @@
+---
+additional_disks:
+  - disk: /dev/xvdj
+    fstype: ext4
+    mount_options: defaults
+    mount: /opt
+  - disk: /dev/xvdh
+    fstype: ext4
+    mount_options: defaults
+    mount: /data

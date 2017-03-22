@@ -1,13 +1,12 @@
 #!/usr/bin/python2
-# parcels:  Download and distribute CDH parcels
-
+# template:  create / apply / delete a template to a cluster via CM API
 
 DOCUMENTATION = '''
 ---
-module: parcels
-short_description: Manage CDH parcels
+module: template
+short_description: Manage templates on the cluster
 description:
-    - Manage parcels
+    - Manage templates
 options:
     cm_host:
       description:
@@ -34,31 +33,30 @@ options:
         - Cluster name.
       required: true
       default: null
-    parcel_version:
+    hostname:
       description:
-        - Parcel version.
+        - host to configure.
+      required: true
+      default: null
+    template_name:
+      descripion:
+        - Host template name
       required: true
       default: null
     restart_cluster:
       descripion:
-        - Restart the cluster after distribute/activate
-      required: false
-      default: True
-    action:
-      descripion:
-        - Action on parcels - choices map [download, distribute]
-      required: true
-      default: null
+        - Restart the cluster after configs changes
 '''
 
 EXAMPLES = '''
-# Distribute CDH 5.8.4 parcel
-- parcels:
+# Apply a template newly created host
+- template:
     cm_host: cm.example.com
     cm_username: admin
     cm_password: my-password
-    parcel_version:
-    action: distribute
+    hostname: myhost01
+    template_name: workers
+    cluster_name: mycluster
   register: cm
 
 '''
@@ -87,11 +85,11 @@ def main():
             cm_username=dict(required=True, type='str'),
             cm_password=dict(required=True, type='str', no_log=True),
             cm_tls=dict(required=False, type='bool', default=False),
-            cm_version=dict(required=False, type='int', default=10),
-            cluster_name=dict(required=False, type='str',default='cluster'),
-            parcel_version=dict(required=False, type='str'),
-            restart_cluster=dict(required=False, type='str',default='True'),
-            action=dict(choices=['download', 'distribute'])
+            cluster_name=dict(required=False, type='str',default='cluster01'),
+            hostname=dict(required=True, type='str'),
+            template_name=dict(required=True, type='str'),
+	    restart_cluster=dict(required=False, type='str',default='True'),
+            action=dict(choices=['create', 'apply', 'delete'])
         )
     )
 
@@ -100,13 +98,13 @@ def main():
     cm_username = module.params.get('cm_username')
     cm_password = module.params.get('cm_password')
     cm_tls = module.params.get('cm_tls')
-    cm_version = module.params.get('cm_version')
     cluster_name = module.params.get('cluster_name')
-    parcel_version = module.params.get('parcel_version')
+    hostname = module.params.get('hostname')
+    template_name = module.params.get('template_name')
+    restart_cluster = module.params.get('restart_cluster')
     action = module.params.get('action')
 
     changed = False
-    start_roles = True
 
     if not api_enabled:
         module.fail_json(changed=changed, msg='cm_api required for this module')
@@ -117,8 +115,9 @@ def main():
                                   password=cm_password,
                                   use_tls=cm_tls,
                                   version=cm_version)
+        cms = ClouderaManager(api)
         cluster = resource.get_cluster(cluster_name)
-        parcel = cluster.get_parcel('CDH', parcel_version)
+	template = ApiClusterTemplate(resource)
     except ApiException as e:
         module.fail_json(changed=changed,
                          msg="Can't connect to CM API: {0}".format(e))
@@ -128,42 +127,15 @@ def main():
         cluster.stop().wait()
         cluster.start().wait()
 
-    if action == "download":
-      try:
-        parcel.start_download()
-        while True:
-          parcel = cluster.get_parcel('CDH', parcel_version)
-          if parcel.stage == 'DOWNLOADED':
-            break
-          if parcel.state.errors:
-            raise Exception(str(parcel.state.errors))
-          print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
-          time.sleep(15) # check again in 15 seconds
-        print "downloaded CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
-        module.exit_json(changed=True, rc=0)
-      except Exception as e:
-        module.fail_json(changed=changed, msg="{0}".format(e))
-
-    elif action == 'distribute':
-      try:
-	parcel.start_distribution()
-        while True:
-          parcel = cluster.get_parcel('CDH', parcel_version)
-	  if parcel.stage in ['DISTRIBUTED','ATVIVATED']:
-            break
-          if parcel.state.errors:
-            raise Exception(str(parcel.state.errors))
-          print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
-          time.sleep(15) # check again in 15 seconds
-        print "distributed CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
-        parcel.activate()
-	
-	if restart_cluster:
-          restart_cluster()
-        
-	module.exit_json(changed=True, rc=0)
-      except Exception as e:
-        module.fail_json(changed=changed, msg="{0}".format(e))
+    if action == "apply":
+        try:
+          hostID = resource.get_host(hostname).hostId
+          template.apply_host_template(template_name,cluster_name,hostID,start_roles)
+	  if restart_cluster:
+          	restart_cluster()
+          module.exit_json(changed=True, rc=0)
+        except Exception as e:
+          module.fail_json(changed=changed, msg="{0}".format(e))
 
     #if action == "create"
     #if action == "delete"

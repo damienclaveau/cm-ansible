@@ -1,0 +1,143 @@
+---
+- name: Set tmp Work directory
+  set_fact:
+    work_dir: "~/ansible"
+
+- name: Create tmp Work directory
+  file: >
+    path="{{work_dir}}"
+    state=directory
+
+- name: Create ldap certificate directory
+  file: 
+    path: "{{ldap_ssl_dir}}"
+    owner: ldap
+    group: ldap
+    mode: 0751
+  tags: 
+   - ldap
+   - ssl
+   - certificates
+
+- name: Check if the ldap ssl RSA key exist and is valid
+  ignore_errors: yes
+  shell: "openssl rsa -in {{ldap_ssl_key_file}} -check"
+  register: ldap_ssl_key_file_valid
+
+# Do not use creates it may skip the task if the password have changed
+- name: Create ldap ssl RSA key
+  shell: >
+    openssl genrsa -aes256 -out {{ldap_ssl_key_file}} -passout pass:ldap 2048
+  when: ldap_ssl_key_file_valid.rc != 0
+  tags: 
+   - ssl
+
+- name: "Remove password from key as slapd does not support it"
+  shell: >
+    openssl rsa -passin pass:ldap -in {{ldap_ssl_key_file}} -out {{ldap_ssl_key_file}}
+  when: ldap_ssl_key_file_valid.rc != 0
+
+- name: check if ldap certificate exist
+  stat: >
+    path={{ldap_ssl_crt_file}}
+  register: ldap_ssl_crt_file_exists
+  tags:
+   - ssl
+
+# Create only if key is not valid or certificate does not exist
+- name: Issue host CSR 
+  shell: >
+    openssl req -new -key {{ldap_ssl_key_file}}
+    -out {{ldap_ssl_csr_file}}
+    -subj '/CN={{ansible_fqdn}}/OU={{cert_organizational_unit}}/O={{cert_organization}}/L={{cert_location}}/ST={{cert_state}}/C={{cert_country}}'
+  when: ldap_ssl_key_file_valid.rc != 0 or ldap_ssl_crt_file_exists.stat.exists == False
+  tags: 
+   - ssl
+
+- name: Self sign the ldap certificate
+  shell: >
+    openssl x509 -in {{ldap_ssl_csr_file}} -out {{ldap_ssl_crt_file}} -req -signkey {{ldap_ssl_key_file}} -days 3650
+  when: ldap_ssl_key_file_valid.rc != 0 or ldap_ssl_crt_file_exists.stat.exists == False
+  tags: 
+   - ssl
+
+- name: change openldap private key file ownership
+  file: > 
+    path={{ldap_ssl_key_file}}
+    owner={{ iam_ldap_user }} 
+    group={{ iam_ldap_user }} 
+    mode=0640
+  tags:
+   - ownership 
+   - ldap
+   - ssl
+
+- name: change openldap csr file ownership
+  file: > 
+    path={{ldap_ssl_csr_file}}
+    owner={{ iam_ldap_user }} 
+    group={{ iam_ldap_user }} 
+    mode=0644
+  tags:
+   - ownership 
+   - ldap
+   - ssl
+
+- name: change openldap crt file ownership
+  file: > 
+    path={{ldap_ssl_crt_file}}
+    owner={{ iam_ldap_user }} 
+    group={{ iam_ldap_user }} 
+    mode=0644
+  tags:
+   - ownership 
+   - ldap
+   - ssl
+
+# Fetch the certificate locally to be trusted by other hosts
+- name: Fetch Openldap trusted certificate
+  fetch: >
+    src="{{ldap_ssl_crt_file}}"
+    dest="{{local_cacert_dir}}/{{ldap_ssl_crt_file | basename}}"
+    flat=yes
+  tags:
+   - ssl
+   - ldap
+
+# Make sure all hosts trust that certificate too
+# already done in host preparation
+- name: Install default trusted certificates
+  copy: >
+   src="{{local_cacert_dir}}/{{ldap_ssl_crt_file | basename}}"
+   dest="{{default_ssl_pem_ca_dir}}"
+   mode=0644
+  tags: 
+   - ssl
+   - ldap
+
+- name: Create ssl config for LDAP
+  template: >
+    src=ssl.ldif.j2 
+    dest="{{work_dir}}/ssl.ldif"
+  tags:
+   - ldap
+   - ssl
+
+- name: Setup ssl config in LDAP
+  shell: ldapmodify -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f ssl.ldif
+  args:
+    chdir: "{{work_dir}}"
+  tags: 
+   - ldap
+   - ssl
+
+- name: enable LDAPS in sysconfig and restart services
+  lineinfile: >
+    dest=/etc/sysconfig/slapd
+    regexp=^SLAPD_URLS=
+    line='SLAPD_URLS="ldapi:/// ldap:/// ldaps:///"'
+  notify:
+    - restart slapd
+  tags: 
+   - ldap
+   - ssl

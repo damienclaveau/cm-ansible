@@ -1,0 +1,45 @@
+---
+- name: Install Cloudera Manager Agent packages
+  yum: >
+    name={{item}}
+    state=latest
+  with_items: "{{cm_agent_pkgs}}"
+  tags:
+   - yum
+   - cm
+
+- name: Enable Cloudera Manager agent service autostart
+  service: >
+    name=cloudera-scm-agent
+    enabled=yes
+  tags:
+   - cm
+
+- name: Chmod Cloudera Manager agent configuration
+  file: >
+    path=/etc/cloudera-scm-agent
+    state=directory
+    mode=0755
+    group=cloudera-scm
+    recurse=true
+  tags:
+   - cm
+
+- name: Configure Cloudera Manager Agent
+  template: >
+    src=cloudera-scm-agent.config.ini.j2
+    dest=/etc/cloudera-scm-agent/config.ini
+    mode=0775
+    group=cloudera-scm
+    backup=yes
+  notify:
+   - reload cm agent
+  tags:
+   - cm
+
+- name: Ensure Cloudera Manager agent service is started
+  service: >
+    name=cloudera-scm-agent
+    state=started
+  tags:
+   - cm

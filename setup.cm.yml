@@ -1,0 +1,5 @@
+---
+- hosts: admin
+  sudo: yes
+  roles:
+    - cloudera

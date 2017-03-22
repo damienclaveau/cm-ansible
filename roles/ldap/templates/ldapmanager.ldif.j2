@@ -1,0 +1,13 @@
+dn: olcDatabase={2}hdb,cn=config
+changetype: modify
+replace: olcSuffix
+olcSuffix: {{ iam_ldap_base_dn }}
+-
+replace: olcRootDN
+olcRootDN: {{ iam_ldap_bind_dn }}
+-
+replace: olcRootPW
+olcRootPW: {{ iam_ldap_bind_passwd_hash.stdout }}
+-
+delete: olcDbIndex
+olcDbIndex: ou,cn,mail,surname,givenname eq,pres,sub

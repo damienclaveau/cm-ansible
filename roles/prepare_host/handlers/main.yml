@@ -1,0 +1,28 @@
+---
+- name: rehash certificates
+#  command: c_rehash /etc/pki/tls/certs/
+  command: for file in *.crt; do ln -s $file `openssl x509 -hash -noout -in $file`.0; done 
+  args:
+    chdir: /etc/pki/tls/certs/
+  ignore_errors: yes
+
+- name: reload cm agent
+  service: >
+    name=cloudera-scm-agent
+    state=restarted
+
+- name: reload ntpd daemon
+  service: >
+    name=ntpd
+    state=restarted
+
+- name: restart sssd
+  service: >
+    name=sssd
+    state=restarted
+
+- name: resync time
+  command: >
+    ntpdate -u {{ntp_primary}}
+  tags:
+   - date

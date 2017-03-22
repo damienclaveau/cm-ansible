@@ -1,0 +1,57 @@
+---
+- name: setup hostname #include /etc/sysconfig/network modification
+  hostname: >
+    name={{inventory_hostname}}
+  tags: 
+   - dns
+   - networking
+
+- name: Set kernel hostname
+  sysctl: >
+    name=kernel.hostname
+    value={{inventory_hostname.split('.')[0]}}
+    state=present
+  tags:
+   - dns
+   - networking
+
+- name: Configure resolv.conf to point out to Platform DNS
+  template: >
+    src=resolv.conf.j2
+    dest=/etc/resolv.conf
+    mode=0664
+    backup=yes
+  tags: 
+   - dns
+   - networking
+
+- name: Disable auto manage etc hosts
+  lineinfile: >
+    dest=/etc/cloud/cloud.cfg
+    state=present
+    regexp="^manage_etc_hosts"
+    line="manage_etc_hosts: false"
+    backup=yes
+  tags:
+   - dns
+   - networking
+
+- name: Configure Hosts file for extra hostnames
+  template: >
+    src=hosts.j2
+    dest=/etc/hosts
+    mode=0664
+    backup=yes
+  tags: 
+   - dns
+   - networking
+
+- name: Disable PEERDNS in network interface configuration
+  lineinfile: >
+    dest=/etc/sysconfig/network-scripts/ifcfg-eth0
+    state=present
+    regexp="^PEERDNS"
+    line="PEERDNS=no"
+    backup=yes
+  tags: 
+   - networking

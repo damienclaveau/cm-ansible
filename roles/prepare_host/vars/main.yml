@@ -1,0 +1,22 @@
+---
+
+cm_agent_pkgs:
+   - cloudera-manager-agent
+   - cloudera-manager-daemons
+
+ssl_keyutil_jar_file: 'keyutil-0.4.0.jar'
+
+ssl_group: "ssl_services"
+ssl_users:
+    - spark
+    - hue
+    - hive
+    - sentry
+    - impala
+    - mapred
+    - hdfs
+    - httpfs
+    - flume
+    - yarn
+    - oozie
+    - cloudera-scm

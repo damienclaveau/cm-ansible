@@ -1,0 +1,54 @@
+---
+- name: "Partition additional disks"
+  stat: >
+    path="{{item.disk}}"
+  with_items: "{{additional_disks}}"
+  register: disks_stats
+  tags:
+    - disk
+
+- debug: >
+    msg="{{disks_stats}}"
+
+- name: Create filesystem on disks
+  filesystem:
+    dev: '{{ item.disk }}'
+    force: '{{ item.force|d(omit) }}'
+    fstype: '{{ item.fstype }}'
+    opts: '{{ item.fsopts|d(omit) }}'
+  with_items: "{{additional_disks}}"
+  tags:
+    - disk
+
+- name: "Ensure the mount directory exists"
+  file: >
+    path={{ item.mount }}
+    owner=root
+    group=root
+    state=directory
+  with_items: "{{additional_disks}}"
+  tags:
+    - disk
+
+- name: Get UUID for partition
+  command: > 
+     blkid -s UUID -o value "{{ item.disk }}"
+  register: disk_blkid
+  with_items: "{{additional_disks}}"
+  changed_when: False
+  tags:
+    - disk
+
+- name: "Mount additional disk"
+  mount:
+    name: '{{ item.0.mount }}'
+    fstype: '{{ item.0.fstype }}'
+    opts: '{{ item.0.mount_options|d(omit) }}'
+    passno: '0'
+    src: 'UUID={{ item.1.stdout }}'
+    state: 'mounted'
+  with_together:
+    - '{{ additional_disks }}'
+    - '{{ disk_blkid.results }}'
+  tags:
+    - disk

@@ -1,0 +1,6 @@
+#resolv.conf for Bigdata
+search {{dns_domain}}
+
+{% for ip in dns_service_ips %}
+nameserver {{ ip }}
+{% endfor %}

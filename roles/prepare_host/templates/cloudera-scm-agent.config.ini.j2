@@ -1,0 +1,128 @@
+[General]
+server_host={{cm_host}}
+server_port=7182
+
+## It should not normally be necessary to modify these.
+# Port that the CM agent should listen on.
+# listening_port=9000
+
+# IP Address that the CM agent should listen on.
+# listening_ip=
+
+# Hostname that the CM agent reports as its hostname. If unset, will be
+# obtained in code through something like this:
+#
+#   python -c 'import socket; \
+#              print socket.getfqdn(), \
+#                    socket.gethostbyname(socket.getfqdn())'
+#
+# listening_hostname=
+
+# An alternate hostname to report as the hostname for this host in CM.
+# Useful when this agent is behind a load balancer or proxy and all
+# inbound communication must connect through that proxy.
+# reported_hostname=
+
+# Port that supervisord should listen on.
+# NB: This only takes effect if supervisord is restarted.
+# supervisord_port=19001
+
+# Log file.  The supervisord log file will be placed into
+# the same directory.  Note that if the agent is being started via the
+# init.d script, /var/log/cloudera-scm-agent/cloudera-scm-agent.out will
+# also have a small amount of output (from before logging is initialized).
+# log_file=/var/log/cloudera-scm-agent/cloudera-scm-agent.log
+
+# Persistent state directory.  Directory to store CM agent state that
+# persists across instances of the agent process and system reboots.
+# Particularly, the agent's UUID is stored here.
+# lib_dir=/var/lib/cloudera-scm-agent
+
+# Parcel directory.  Unpacked parcels will be stored in this directory.
+# Downloaded parcels will be stored in <parcel_dir>/../parcel-cache
+# parcel_dir=/opt/cloudera/parcels
+
+# Enable supervisord event monitoring.  Used in eager heartbeating, amongst
+# other things.
+# enable_supervisord_events=true
+
+# Maximum time to wait (in seconds) for all metric collectors to finish
+# collecting data.
+max_collection_wait_seconds=10.0
+
+# Maximum time to wait (in seconds) when connecting to a local role's
+# webserver to fetch metrics.
+metrics_url_timeout_seconds=30.0
+
+# Maximum time to wait (in seconds) when connecting to a local TaskTracker
+# to fetch task attempt data.
+task_metrics_timeout_seconds=5.0
+
+# The list of non-device (nodev) filesystem types which will be monitored.
+monitored_nodev_filesystem_types=nfs,nfs4,tmpfs
+
+# The list of filesystem types which are considered local for monitoring purposes.
+# These filesystems are combined with the other local filesystem types found in
+# /proc/filesystems
+local_filesystem_whitelist=ext2,ext3,ext4
+
+# The largest size impala profile log bundle that this agent will serve to the
+# CM server. If the CM server requests more than this amount, the bundle will
+# be limited to this size. All instances of this limit being hit are logged to
+# the agent log.
+impala_profile_bundle_max_bytes=1073741824
+
+# The largest size stacks log bundle that this agent will serve to the CM
+# server. If the CM server requests more than this amount, the bundle will be
+# limited to this size. All instances of this limit being hit are logged to the
+# agent log.
+stacks_log_bundle_max_bytes=1073741824
+
+# The size to which the uncompressed portion of a stacks log can grow before it
+# is rotated. The log will then be compressed during rotation.
+stacks_log_max_uncompressed_file_size_bytes=5242880
+
+# The orphan process directory staleness threshold. If a diretory is more stale
+# than this amount of seconds, CM agent will remove it.
+orphan_process_dir_staleness_threshold=5184000
+
+# The orphan process directory refresh interval. The CM agent will check the
+# staleness of the orphan processes config directory every this amount of
+# seconds.
+orphan_process_dir_refresh_interval=3600
+
+# A knob to control the agent logging level. The options are listed as follows:
+# 1) DEBUG (set the agent logging level to 'logging.DEBUG')
+# 2) INFO (set the agent logging level to 'logging.INFO')
+scm_debug=INFO
+
+# The DNS resolution collecion interval in seconds. A java base test program
+# will be executed with at most this frequency to collect java DNS resolution
+# metrics. The test program is only executed if the associated health test,
+# Host DNS Resolution, is enabled.
+dns_resolution_collection_interval_seconds=60
+
+# The maximum time to wait (in seconds) for the java test program to collect
+# java DNS resolution metrics.
+dns_resolution_collection_timeout_seconds=30
+
+# The directory location in which the agent-wide kerberos credential cache
+# will be created.
+# agent_wide_credential_cache_location=/var/run/cloudera-scm-agent
+
+[Security]
+{% if cm_encryption == True %}
+#L1: Enable Cm Encryption
+use_tls=1
+max_cert_depth=9
+
+#L2: identify CM server according CA trusted by CM agent
+verify_cert_file={{ssl_pem_ca_dir}}/platform-ca.crt
+#L3: identify CM agent itself with certificate signed by CA trusted by CM server
+client_key_file={{ssl_pem_key_file}}
+client_keypw_file={{ssl_pem_key_pw_file}}
+client_cert_file={{ssl_pem_cert_file}}
+{% else %}
+use_tls=0
+max_cert_depth=9
+{% endif %}

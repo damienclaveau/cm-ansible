@@ -1,0 +1,8 @@
+dn: olcOverlay={0}ppolicy,olcDatabase={2}hdb,cn=config
+objectClass: olcOverlayConfig
+objectClass: olcPPolicyConfig
+olcOverlay: {0}ppolicy
+olcPPolicyDefault: {{ iam_ldap_password_policy_dn }}
+olcPPolicyHashCleartext: FALSE
+olcPPolicyUseLockout: TRUE
+olcPPolicyForwardUpdates: FALSE

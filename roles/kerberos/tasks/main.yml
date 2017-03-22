@@ -1,0 +1,116 @@
+---
+- name: Install kerberos and required Packages
+  yum: >
+    name={{ item }} 
+    state=installed
+  with_items:
+    - krb5-server
+    - openldap-clients
+    - krb5-workstation
+    - krb5-server-ldap
+  tags:
+    - yum
+    - krb
+
+- name: Enable kadmin and kdc autostart
+  service: >
+    name={{item}}
+    enabled=yes
+  with_items:
+    - kadmin
+    - krb5kdc
+  tags:
+   - krb
+
+- name: Configure krb5.conf
+  template: >
+    src=krb5.conf.j2
+    dest=/etc/krb5.conf
+    mode=0664
+    backup=yes
+  tags: 
+   - krb
+
+- name: Setup KDC configuration
+  template: >
+    src=kdc.conf.j2 
+    dest=/var/kerberos/krb5kdc/kdc.conf
+    mode=0600
+    backup=yes
+  tags:
+    - krb
+
+- name: Setup Kadmin acls configuration
+  template: >
+    src=kadm5.acl.j2 
+    dest=/var/kerberos/krb5kdc/kadm5.acl
+    mode=0600
+    backup=yes
+  tags:
+    - krb
+
+- name: Creating the kerberos database 
+  shell: "kdb5_util create -s -P {{ iam_krb_master_db_passwd }}"
+  when: not enable_krb_ldap
+  tags:
+    - krb
+
+## Not sure if this actually works (need to test this)
+- name: Setup kdc ldap password 
+  shell: >
+    "kdb5_ldap_util stashsrvpw -f /var/kerberos/krb5kdc/ldap.keyfile {{ iam_ldap_bind_kdc_dn }} -w {{ iam_ldap_bind_kdc_passwd }}"
+  when: enable_krb_ldap
+  tags:
+    - krb
+    - ldap
+
+- name: Setup kadmin ldap password
+  shell: >
+    "kdb5_ldap_util stashsrvpw -f /var/kerberos/krb5kdc/ldap.keyfile {{ iam_ldap_bind_kadm_dn }} -w {{ iam_ldap_bind_adm_passwd }}"
+  when: enable_krb_ldap
+  tags:
+    - krb
+    - ldap
+
+- name: Generate ldap kerberos schema
+  shell: >
+    "kdb5_ldap_util -H ldapi:// -D {{ iam_ldap_bind_dn }} create -subtrees {{ iam_ldap_users_dn }} -P {{ iam_ldap_bind_passwd }} -r {{ iam_kdc_realm }} -s"
+  when: enable_krb_ldap
+  tags:
+    - krb
+    - ldap
+
+- name: start kdc
+  service: name=krb5kdc state=started
+  tags:
+    - krb
+
+- name: start kadmin
+  service: name=kadmin state=started
+  tags:
+    - krb
+
+- name: Increase tgt max renew life 
+  shell: 'kadmin.local  -q "modprinc -maxrenewlife 1week krbtgt/{{iam_kdc_realm}}"'
+  tags:
+    - krb
+
+- name: Create kadmin principle
+  shell: 'kadmin.local  -q "addprinc -pw {{ iam_kadmin_passwd }} {{ iam_kdc_admin_princ }}"'
+  tags:
+    - krb
+
+- name: Create cdh principle
+  shell: 'kadmin.local  -q "addprinc -pw {{ iam_kadmin_cdh_passwd }} -maxrenewlife 1week {{ iam_kdc_cdh_princ }}"'
+  tags:
+    - krb
+
+- name: Create hdfs principle
+  shell: 'kadmin.local  -q "addprinc -pw {{ hdfs_kerberos_password }} {{ iam_kdc_hdfs_princ }}"'
+  tags:
+    - krb
+
+- name: Create cloudera principle
+  shell: 'kadmin.local -q "addprinc -pw {{ iam_kdc_cloudera_passwd }} {{ iam_kdc_cloudera_princ }}"'
+  tags:
+    - krb

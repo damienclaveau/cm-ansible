@@ -1,0 +1,25 @@
+---
+################################################
+# Deploy the structure of your first Platform
+
+- name: Upload Create Platform Structure script
+  template: >
+    src=platformstructure.ldif.j2 
+    dest="{{work_dir}}/platformstructure.ldif"
+
+- name: Run Create Plateform Structure Script
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f platformstructure.ldif
+  args:
+    chdir: "{{work_dir}}"
+  register: command_result
+  failed_when: "(command_result.rc != 0) and (command_result.rc != 20) and (command_result.rc != 68)"
+  notify:
+    - restart slapd
+
+- name: fail the play if the error code is not 20
+  fail: msg="Error in Running Create Plateform Strecture script"
+  when: (command_result.rc != 0) and (command_result.rc != 20) and (command_result.rc != 68)
+
+- name: debug ignored error
+  debug: >
+    msg="Error Code {{ command_result.rc }} is ignored {{command_result.stderr}}"

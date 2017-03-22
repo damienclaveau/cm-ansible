@@ -1,0 +1,31 @@
+# It happens that I'm using only one machine  my cluster but if you had more this
+# will actually make more sense
+[lab]
+54.186.42.110
+54.244.101.121
+54.218.112.78
+54.213.59.235
+54.190.2.92
+
+[admin]
+54.218.112.78
+
+[gateways]
+54.218.112.78
+
+[masters]
+54.218.112.78
+
+[workers]
+54.244.101.121
+54.213.59.235
+54.190.2.92
+
+[lab:children]
+gateways
+admin
+masters
+workers
+
+[all:vars]
+platform_resources=ressources

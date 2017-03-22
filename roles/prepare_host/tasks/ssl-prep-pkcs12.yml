@@ -1,0 +1,32 @@
+---
+############# PKCS12 format conversion################
+
+- name: check if PKCS12 keystore file exists
+  stat: >
+    path={{ssl_pkcs12_keystore_file}}
+  register: ssl_pkcs12_keystore_file_exists
+  tags:
+   - ssl
+
+- name: Generate PKCS12 keystore from private key + public certificate + ca chain
+  shell: >
+    openssl pkcs12 -export 
+    -name bigdatahost 
+    -in {{ssl_pem_cert_file}} 
+    -inkey {{ssl_pem_key_file}}
+    -passin pass:{{ lookup('password', local_ssl_key_pwd_file) }}
+    -out {{ ssl_pkcs12_keystore_file }}
+    -passout pass:{{ lookup('password', local_ssl_key_pwd_file) }}
+    -certfile {{ssl_pem_ca_chain_file}}
+  when: ssl_key.changed == True or ssl_cert.changed == True or ssl_ca_chain.changed == True or ssl_pkcs12_keystore_file_exists.stat.exists == False
+  tags:
+   - ssl
+
+- name: Apply files permissions on PKCS12 keystore
+  file: >
+    path={{ssl_pkcs12_keystore_file}}
+    state=file
+    group={{ssl_group}}
+    mode=0440
+  tags:
+   - ssl

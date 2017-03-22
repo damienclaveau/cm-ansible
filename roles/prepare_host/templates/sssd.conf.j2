@@ -1,0 +1,45 @@
+# sssd configuraton for Bigdata
+[sssd]
+domains = {{dns_domain}}
+config_file_version = 2
+services = nss, pam
+debug_level = 0
+
+[nss]
+filter_groups = root
+filter_users = root
+reconnection_retries = 3
+entry_cache_timeout = 300
+entry_cache_nowait_percentage = 75
+override_shell = /bin/bash
+shell_fallback = /bin/bash
+vetoed_shells = /bin/sh
+
+[pam]
+reconnection_retries = 3
+offline_credentials_expiration = 2
+offline_failed_login_attempts = 3
+offline_failed_login_delay = 5
+
+[domain/{{dns_domain}}]
+min_id = 1000
+id_provider = ldap
+auth_provider = ldap
+chpass_provider = none
+enumerate = false
+# Allow offline logins by locally storing password hashes (default: false).
+cache_credentials = true
+ldap_tls_cacertdir = {{default_ssl_pem_ca_dir}}
+ldap_uri = {{iam_ldap_url}}
+ldap_referrals = false
+ldap_disable_referrals = true
+ldap_id_use_start_tls = false
+ldap_search_base = {{iam_ldap_base_dn}}
+ldap_default_bind_dn = {{iam_ldap_bind_dn}}
+ldap_default_authtok = {{iam_ldap_bind_passwd}}
+ldap_schema = rfc2307bis
+ldap_user_object_class = posixAccount
+ldap_group_object_class = posixGroup
+ldap_user_name = uid
+ldap_user_home_directory = homeDirectory
+case_sensitive = false

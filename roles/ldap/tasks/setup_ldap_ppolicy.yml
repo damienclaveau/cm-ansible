@@ -1,0 +1,70 @@
+---
+
+# configure ldap lockout password policy
+- name: Add ppolicy template file
+  template: > 
+     src="module.ldif.j2"
+     dest="{{work_dir}}/module.ldif"
+  tags:
+    - ldap
+
+- name: enable ppolicy module in slapd
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f module.ldif
+  args:
+    chdir: "{{work_dir}}"
+  register: command_result
+  failed_when: "(command_result.rc != 0) and (command_result.rc != 64) "
+  tags:
+    - ldap
+- name: add ppolicy schema
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f /etc/openldap/schema/ppolicy.ldif
+  register: command_result
+  failed_when: "(command_result.rc != 0) and (command_result.rc != 64) and (command_result.rc != 80)"
+  tags:
+    - ldap
+
+- name: Add overlay template file
+  template: > 
+     src="overlay.ldif.j2"
+     dest="{{work_dir}}/overlay.ldif"
+  tags:
+    - ldap
+
+- name: check overlay does not exist
+  command: ldapsearch -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi://  -b "olcDatabase={2}hdb,cn=config" -s one -a always -z 1000
+  failed_when: false
+  register: overlay_search
+  
+#the overlay MUST NOT be inserted more than once otherwise ldap crashes
+- name: overlay database specifying default password policy
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f overlay.ldif
+  args:
+    chdir: "{{work_dir}}"
+  register: command_result
+  ignore_errors: False
+  when: overlay_search.rc == 32
+  tags:
+    - ldap
+
+- name: restart slapd
+  service:
+    name: 'slapd'
+    state: 'restarted'
+
+- name: Add password policy template file
+  template: > 
+     src="passwordpolicy.ldif.j2"
+     dest="{{work_dir}}/passwordpolicy.ldif"
+  tags:
+    - ldap
+
+- name: creation the actual policy
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f passwordpolicy.ldif
+  args:
+    chdir: "{{work_dir}}"
+  register: command_result
+  failed_when: "(command_result.rc != 0) and (command_result.rc != 68) "
+  notify:
+    - restart slapd
+  tags:
+    - ldap

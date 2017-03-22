@@ -1,0 +1,61 @@
+dn: {{ iam_ldap_groups_dn }}
+changetype: add
+objectClass: organizationalUnit
+ou: Groups
+
+dn: cn=platform-admins,{{ iam_ldap_groups_dn }}
+changetype: add
+objectClass: groupOfNames
+objectClass: posixGroup
+objectClass: top
+cn: platform-admins
+gidNumber: 3000
+member: uid=dummy
+
+dn: cn=platform-cdh,{{ iam_ldap_groups_dn }}
+changetype: add
+objectClass: groupOfNames
+objectClass: posixGroup
+objectClass: top
+cn: platform-cdh
+gidNumber: 3002
+member: uid=dummy
+
+dn: cn=platform-users,{{ iam_ldap_groups_dn }}
+changetype: add
+objectClass: groupOfNames
+objectClass: posixGroup
+objectClass: top
+cn: platform-users
+gidNumber: 3001
+member: uid=dummy
+
+dn: cn=supergroup,{{ iam_ldap_groups_dn }}
+changetype: add
+objectClass: groupOfNames
+objectClass: posixGroup
+objectClass: top
+cn: supergroup
+gidNumber: 3004
+member: uid=dummy
+
+dn: {{ iam_ldap_users_dn }}
+changetype: add
+objectClass: organizationalUnit
+ou: Users
+
+dn: {{ iam_ldap_services_dn }}
+changetype: add
+objectClass: organizationalUnit
+ou: Services
+
+dn: uid=cloudera-service,{{ iam_ldap_services_dn }}
+changetype: add
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Cloudera service account
+sn: Cloudera service account
+uid: cloudera-service
+userPassword:: Y2xvdWRlcmE=

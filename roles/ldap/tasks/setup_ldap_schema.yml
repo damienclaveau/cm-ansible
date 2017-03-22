@@ -1,0 +1,83 @@
+
+###########################################
+# Create LDAP base structure
+
+- name: Generate the root ldap password for cdh
+  shell: "slappasswd -s {{ iam_ldap_bind_ro_passwd }}"
+  register: iam_ldap_bind_ro_passwd_hash
+  tags:
+    - ldap
+    - cdh
+
+- name: Generate the root ldap password for kdc
+  shell: "slappasswd -s {{ iam_ldap_bind_kdc_passwd }}"
+  register: iam_ldap_bind_kdc_passwd_hash
+  tags:
+    - ldap
+    - krb
+
+- name: Generate the root ldap password for kadmin
+  shell: "slappasswd -s {{ iam_ldap_bind_adm_passwd }}"
+  register: iam_ldap_bind_adm_passwd_hash
+  tags:
+    - ldap
+    - krb
+
+- name: Create add Services script
+  template: > 
+     src="ldapbase.ldif.j2"
+     dest="{{work_dir}}/ldapbase.ldif"
+  tags:
+    - ldap
+
+# Ignore failures because the schema may already exist
+- name: add Services account to ldap
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f ldapbase.ldif
+  args:
+    chdir: "{{work_dir}}"
+  register: command_result
+  failed_when: (command_result.rc != 0) and  (command_result.rc != 20) and (command_result.rc != 68)
+  notify:
+    - restart slapd
+  tags:
+    - ldap
+
+- name: fail the play if the error code is not 20
+  fail: msg="Error Running Add Schema script"
+  when: (command_result.rc != 0) and (command_result.rc != 20) and (command_result.rc != 68)
+
+- name: debug ignored error
+  debug: msg="ERROR Code {{ command_result.rc }} is ignored {{ command_result.stderr }}"
+  when: (command_result.rc != 0)
+
+- name: Creates logs directory
+  file: >
+      path=/var/tmp/bdb-log
+      state=directory
+      owner=ldap
+      group=ldap
+  tags:
+    - ldap
+
+# Tune LDAP Database and grant minimal accesses to Kerberos principals
+- name: Create the LDAP DB tuning script
+  template: > 
+     src=dbtuningnacls.ldif.j2 
+     dest="{{work_dir}}/dbtuningnacls.ldif"
+  tags:
+    - ldap
+
+- name: Run DB tuning script to grant minimal accesses to Kerberos principals
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w "{{ iam_ldap_bind_passwd }}" -H ldapi:// -f dbtuningnacls.ldif
+  args:
+    chdir: "{{work_dir}}"
+  register: command_result
+  failed_when: (command_result.rc != 0) and  (command_result.rc != 20) and (command_result.rc != 68) and (command_result.rc != 80)
+  notify:
+    - restart slapd
+  tags:
+    - ldap
+
+- name: debug ignored error
+  debug: msg="Error Code {{ command_result.rc }} is ignored {{command_result.stderr}}"
+  when: (command_result.rc != 0)

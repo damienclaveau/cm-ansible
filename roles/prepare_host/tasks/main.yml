@@ -1,0 +1,22 @@
+---
+- debug: >
+    msg="Preparing host {{inventory_hostname}}"
+
+########## WORK_DIR #############  
+- name: Create Work directory
+  file: >
+    path="~/ansible"
+    state=directory 
+  register: work_dir
+  tags: create.work.dir
+
+- include: setup-host-commons.yml
+  when: setup_host_commons
+- include: setup-host-disks.yml
+  when: setup_host_disks
+- include: setup-host-networking.yml
+  when: setup_host_networking
+- include: setup-host-security.yml
+  when: setup_host_security
+- include: setup-cm-agent.yml
+  when: setup_cm_agent

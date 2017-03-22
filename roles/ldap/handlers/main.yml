@@ -1,0 +1,6 @@
+---
+# handlers file for roles/ldap_service
+- name: restart slapd
+  service:
+    name: 'slapd'
+    state: 'restarted'

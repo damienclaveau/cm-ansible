@@ -1,0 +1,64 @@
+---
+#######################################
+# Add kerberos schema in slapd config
+
+# Not sure what version of kerberos is this use find to work around it
+- name: upload kerberos schema into LDAP
+  copy: >
+    src="kerberos.schema"
+    dest="/etc/openldap/schema"
+  tags:
+    - ldap
+    - krb
+
+- name: upload slapds.conf
+  copy: > 
+     src="slapd.conf" 
+     dest="{{work_dir}}" 
+  tags:
+    - ldap
+    - krb
+
+- name: convert kerberos.schema into kerberos.ldif
+  shell: "slaptest -f slapd.conf -F ."
+  args:
+     chdir: "{{work_dir}}" 
+     creates: "cn=config/cn=schema/cn={0}kerberos.ldif"
+  tags:
+     - ldap
+     - krb
+
+- name: cleanup last lines of kerberos.ldif (operational attributes)
+  shell: 'sed -e "s/{0}kerberos/kerberos/" -e "/structuralObjectClass/d" -e "/entry/d" -e "/creat/d" -e "/modif/d" -e "s/^dn:.*/dn: cn=kerberos,cn=schema,cn=config/" -i cn\=config/cn\=schema/cn\=\{0\}kerberos.ldif'
+  args:
+    chdir: "{{work_dir}}"
+  tags:
+    - ldap
+    - krb
+
+- name: setup the new kerberos schema
+  command: cp "cn=config/cn=schema/cn={0}kerberos.ldif" "/etc/openldap/schema/kerberos.ldif"
+  args:
+     chdir: "{{work_dir}}"
+  tags:
+    - ldap
+    - krb
+
+- name: add kerberos schema to ldap
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w {{ iam_ldap_bind_passwd }}  -H ldapi:// -f /etc/openldap/schema/kerberos.ldif
+  register: command_result
+  failed_when: (command_result.rc != 0) and (command_result.rc != 20) and (command_result.rc != 68) and (command_result.rc != 80) and (command_result.rc != 16)
+  notify:
+    - restart slapd
+  tags:
+    - ldap
+    - krb
+
+# Error code 80 means the attribute already exit
+- name: fail the play if the error code is not 80
+  fail: msg="Error in add kerberos schema to ldap"
+  when: (command_result.rc != 0) and (command_result.rc != 20) and (command_result.rc != 68) and (command_result.rc != 80) and (command_result.rc != 16)
+
+- name: debug ignored error
+  debug: msg="Error Code {{ command_result.rc }} is ignored {{command_result.stderr}}"
+  when: (command_result.rc != 0)  

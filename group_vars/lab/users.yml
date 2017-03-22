@@ -1,0 +1,17 @@
+---
+platfrom_groups:
+ - platform-admins
+ - platform-users
+ - supergroup
+
+platform_admin_user: "yassine.azzouz"
+platform_admin_group: "platform-admins"
+
+platform_users:
+  - username: yassine.azzouz
+    name: Yassine Azzouz
+    groups:
+      - 'platform-admins'
+      - 'supergroup'
+      - 'wheel'
+    uid: 1050

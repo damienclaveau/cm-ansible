@@ -1,0 +1,14 @@
+---
+- hosts: lab
+  sudo: yes
+  vars:
+    - ansible_ssh_user: "admin"
+  roles:
+    - {
+    	role: prepare_host,
+    	setup_cm_agent: "{{setup_cm_agent|default(True)}}",
+    	setup_host_security: "{{setup_host_security|default(True)}}",
+    	setup_host_networking: "{{setup_host_networking|default(True)}}",
+    	setup_host_disks: "{{setup_host_disks|default(True)}}",
+    	setup_host_commons: "{{setup_host_commons|default(True)}}"
+      }

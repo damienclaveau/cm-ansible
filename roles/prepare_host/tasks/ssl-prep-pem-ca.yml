@@ -1,0 +1,51 @@
+---
+############# OPENSSL / PEM format ################
+#### PEM CA Certs ####
+- name: Install trusted CA PEM certificates
+  copy: >
+    src={{item}}
+    dest={{ssl_pem_ca_dir}}
+    mode=0444
+    backup=yes
+  with_fileglob:
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/certificates/*.crt"
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/certificates/*.pem"
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform-CA/*.crt"
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform-CA/*.pem"
+  tags: 
+   - ssl
+
+- name: Rehash certificates
+  script: c_rehash {{ssl_pem_ca_dir}} 
+  tags:
+   - ssl
+
+- name: Install default trusted certificates
+  copy: >
+    src={{item}}
+    dest={{default_ssl_pem_ca_dir}}
+    mode=0664
+    backup=yes
+  with_fileglob:
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/certificates/*.crt"
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/certificates/*.pem"
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform-CA/*.crt"
+   - "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform-CA/*.pem"
+  tags: 
+   - ssl
+
+- name: Rehash certificates
+  script: c_rehash {{default_ssl_pem_ca_dir}}
+  tags:
+   - ssl
+
+- name: Concatenates PEM CA certs into single file
+  assemble: >
+    src={{ssl_pem_ca_dir}}
+    regexp="^(.*)(crt|pem)$"
+    dest={{ssl_pem_ca_chain_file}}
+    group=cloudera-scm
+    mode=0444
+  register: ssl_ca_chain
+  tags: 
+   - ssl

@@ -1,0 +1,7 @@
+---
+- hosts: lab
+  sudo: yes
+  vars:
+    - ansible_ssh_user: "admin"
+  roles:
+    - { role: prepare_host, setup_host_security: True }

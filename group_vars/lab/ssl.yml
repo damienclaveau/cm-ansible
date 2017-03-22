@@ -1,0 +1,53 @@
+---
+cm_encryption: False
+certificate_authority_server: ""
+
+cert_organizational_unit: ""
+cert_organization: ""
+cert_location: Paris
+cert_state: IDF
+cert_country: FR
+
+default_ssl_pem_ca_dir: "/etc/pki/tls/certs" #contains all CA certificates splited into multiple files
+
+#local files
+local_ssl_key_pwd_file:  "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform_keys.pw"
+local_ssl_pem_key_file:  "{{playbook_dir}}/{{platform_resources}}/security/ssl/hosts/{{ansible_fqdn}}/{{ansible_fqdn}}.key"
+local_ssl_pem_csr_file:  "{{playbook_dir}}/{{platform_resources}}/security/ssl/hosts/{{ansible_fqdn}}/{{ansible_fqdn}}.csr"
+local_ssl_pem_cert_file: "{{playbook_dir}}/{{platform_resources}}/security/ssl/hosts/{{ansible_fqdn}}/{{ansible_fqdn}}.pem"
+
+# local certificate authority certificates
+local_cacert_root_key_pwd_file: "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform-CA/platform-ca-key.password"
+local_cacert_root_key_file: "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform-CA/platform-ca.key"
+local_cacert_root_cert_file: "{{playbook_dir}}/{{platform_resources}}/security/ssl/platform-CA/platform-ca.crt"
+local_cacert_dir: "{{playbook_dir}}/{{platform_resources}}/security/ssl/certificates"
+
+#private password
+#ssl_private_dir: '/opt/cloudera/security/private'
+#ssl_key_pw_file: '{{ssl_private_dir}}/bigdata-host-key.pw'
+#Certificates in PEM format
+ssl_x509_dir: '/opt/cloudera/security/x509'
+ssl_pem_key_file: '{{ssl_x509_dir}}/bigdata-host.key' #contains Host private key and certificate
+ssl_pem_cert_file: '{{ssl_x509_dir}}/bigdata-host.pem' #contains Host certificate and CA chain
+ssl_pem_key_cert_file: '{{ssl_x509_dir}}/bigdata-host-key-cert.pem'
+ssl_pem_ca_chain_file: '{{ssl_x509_dir}}/bigdata-ca-chain.pem' #contains all CA certificates merged into 1 unique file
+
+# contains all CA certificates splited into multiple files
+ssl_pem_ca_dir: '/opt/cloudera/security/cacerts'  #contains all CA certificates splited into multiple files
+
+#certificates in pkcs12 format
+ssl_pkcs12_dir: '/opt/cloudera/security/pkcs12'
+ssl_pkcs12_keystore_file: '{{ssl_pkcs12_dir}}/bigdata-host-keystore.p12'
+
+#Certificates in JAVA format
+ssl_jks_dir: '/opt/cloudera/security/jks'
+ssl_jks_keystore_file: '{{ssl_jks_dir}}/bigdata-host-keystore.jks'
+ssl_jks_truststore_file: '{{ssl_jks_dir}}/bigdata-ca-truststore.jks'
+
+#Certificate Authority service (to be moved later in svc_certificate_authority role)
+cacert_root_dir: "/opt/cloudera/ca"
+cacert_root_key_pwd_file: "{{cacert_root_dir}}/private/platform-ca-key.password"
+cacert_root_key_file: "{{cacert_root_dir}}/private/platform-ca.key"
+cacert_root_cert_file: "{{cacert_root_dir}}/certs/platform-ca.crt"
+
+ssl_pem_key_pw_file: "/opt/cloudera/security/platform_keys.pw"

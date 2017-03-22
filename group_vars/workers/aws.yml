@@ -1,0 +1,15 @@
+key_name: "lda"
+instance_type: "m3.medium"
+#image_id: "ami-b3bf2f83"
+image_id: "ami-3b28a35b"
+sg_group: "HTTPS"
+vpc_subnet_id: "subnet-67e4ef3f"
+volumes:
+    - device_name: /dev/xvdj
+      volume_type: gp2
+      volume_size: 50
+      delete_on_termination: true
+    - device_name: /dev/xvdh
+      volume_type: gp2
+      volume_size: 100
+      delete_on_termination: true

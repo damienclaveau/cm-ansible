@@ -1,0 +1,170 @@
+---
+############# OPENSSL / PEM format ################
+
+#- name: First check if the there is an RSA key for the host
+#  delegate_to: 127.0.0.1
+#  stat: path={{local_ssl_pem_key_file}}
+#  register: local_ssl_pem_key_file_exist
+
+- name: Check if the RSA key exist and is valid
+  delegate_to: 127.0.0.1
+  ignore_errors: yes
+  command: "openssl rsa -in {{local_ssl_pem_key_file}} -passin pass:{{ lookup('password', local_ssl_key_pwd_file) }} -check"
+  register: local_ssl_pem_key_file_valid
+
+- debug: msg="Looks like the key is valid so no need to regerate it."
+  when: local_ssl_pem_key_file_valid.rc == 0
+
+# Do not use creates it may skip the task if the password have changed
+- name: Create host RSA key
+  delegate_to: 127.0.0.1
+  command: >
+    openssl genrsa -aes256 -out {{local_ssl_pem_key_file}} -passout pass:{{ lookup('password', local_ssl_key_pwd_file) }} 2048
+  when: local_ssl_pem_key_file_valid.rc != 0
+  register: ssl_key
+  tags: 
+   - ssl
+
+- name: "Upload Certificate private key file"
+  copy: >
+    src="{{local_ssl_key_pwd_file}}"
+    dest="{{ssl_pem_key_pw_file}}"
+    owner="root"
+    force=yes
+    group="ssl_services"
+    mode=0740
+
+- name: Copy host RSA key to host
+  copy: >
+    src="{{local_ssl_pem_key_file}}"
+    dest="{{ssl_pem_key_file}}"
+    group={{ssl_group}}
+    mode=0440
+    backup=yes
+  register: ssl_key
+  tags: 
+   - ssl
+
+# Do not use creates it may skip the task if the password have changed
+- name: Issue host CSR 
+  delegate_to: 127.0.0.1
+  shell: >
+    openssl req -new -key {{local_ssl_pem_key_file}} 
+    -passin pass:{{ lookup('password', local_ssl_key_pwd_file) }}
+    -out {{local_ssl_pem_csr_file}}
+    -subj '/CN={{inventory_hostname}}/OU={{cert_organizational_unit}}/O={{cert_organization}}/L={{cert_location}}/ST={{cert_state}}/C={{cert_country}}'
+  when: ssl_key.changed == True
+  tags: 
+   - ssl
+
+# do not skip the copy, if the files are identical it is not gonna do anything
+- name: Copy host csr to Certificate Authority host
+  delegate_to: "{{certificate_authority_server}}"
+  copy: >
+    src="{{local_ssl_pem_csr_file}}"
+    dest="{{cacert_root_dir}}/csr/{{inventory_hostname}}.csr"
+  register: ssl_csr
+  tags: 
+   - cacert
+   - ssl
+
+# if the key changed the certificate got to change
+# # otherwise manual modification have been done
+- debug: msg="WARN key and certificate are not in sync looks like altered manually."
+  when: ssl_csr.changed != ssl_key.changed
+
+# only if a new CSR have been uploaded
+- name: Check for any previous certificates
+  delegate_to: "{{certificate_authority_server}}"
+  shell: >
+    grep "^V.*CN={{inventory_hostname}}" {{cacert_root_dir}}/index.txt
+  register: ssl_existing_valid_cert
+  ignore_errors: True
+  tags: 
+   - cacert
+   - ssl
+
+# only if a new CSR have been uploaded and there is a previous certificate for the host
+- name: Revoke any previous certificate for this host
+  delegate_to: "{{certificate_authority_server}}"
+  shell: >
+    openssl ca 
+    -revoke {{cacert_root_dir}}/newcerts/{{inventory_hostname}}.pem 
+    -config {{cacert_root_dir}}/ca-config.cnf
+    -passin file:{{cacert_root_key_pwd_file}}
+  when: ssl_csr.changed == True and ssl_existing_valid_cert.rc == 0
+  register: ssl_revoke
+  tags:
+   - cacert
+   - ssl
+
+- name: Create/refresh crl file
+  delegate_to: "{{certificate_authority_server}}"
+  shell: >
+     openssl ca -gencrl -out {{cacert_root_dir}}/crl/crl.pem -config {{cacert_root_dir}}/ca-config.cnf -passin file:{{cacert_root_key_pwd_file}}
+  when: ssl_csr.changed == True and ssl_existing_valid_cert.rc == 0
+  tags: 
+   - cacert
+   - ssl
+
+# Sign any new csr
+- name: Request CA to sign host certificate
+  delegate_to: "{{certificate_authority_server}}"
+  shell: >
+    openssl ca 
+    -config {{cacert_root_dir}}/ca-config.cnf
+    -policy policy_anything 
+    -out {{cacert_root_dir}}/newcerts/{{inventory_hostname}}.pem 
+    -passin file:{{cacert_root_key_pwd_file}}
+    -batch
+    -infiles {{cacert_root_dir}}/csr/{{inventory_hostname}}.csr 
+  when: ssl_csr.changed == True
+  tags: 
+   - cacert
+   - ssl
+
+# normally we do not need to gard the fetch with condition since it is not gonna copy if the
+# host signed certificate is the same, and ensure that certificate are always in sync
+- name: Fetch Host signed certificate
+  delegate_to: "{{certificate_authority_server}}"
+  fetch: >
+    src="{{cacert_root_dir}}/newcerts/{{inventory_hostname}}.pem"
+    dest="{{local_ssl_pem_cert_file}}"
+    flat=yes
+  tags:
+   - cacert
+   - ssl
+
+# normally we do not need to gard the copy with condition since it is not gonna copy if the
+# # host signed certificate is the same, and ensure that certificate are always in sync
+- name: Copy host signed certificate to host
+  copy: >
+    src="{{local_ssl_pem_cert_file}}"
+    dest='{{ssl_pem_cert_file}}'
+    group=cloudera-scm
+    mode=0444
+    backup=yes
+  register: ssl_cert
+  tags: 
+   - ssl
+
+- debug: msg="WARN csr and cert are not in sync looks like altered manually."
+  when: ssl_csr.changed != ssl_cert.changed
+
+# normally we do not need to gard the assemble with condition since it is not gonna overwrite only
+# if the host signed certificate and key are NOT the same, and ensure that certificate are always in sync
+- name: Assemble host key and signed certificate
+  assemble: >
+    src="{{ssl_x509_dir}}"
+    regexp="^({{ssl_pem_key_file| basename}}|{{ssl_pem_cert_file| basename}})$"
+    dest="{{ssl_pem_key_cert_file}}"
+    group={{ssl_group}}
+    mode=0440
+  register: ssl_pem
+  tags:
+   - ssl
+
+# if the key changed the certificate got to change
+# otherwise manual modification have been done
+- debug: msg="WARN pem and cert are not in sync, looks like altered manually."
+  when: ssl_pem.changed != ssl_cert.changed

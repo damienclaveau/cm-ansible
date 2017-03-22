@@ -1,0 +1,7 @@
+---
+setup_cm_agent: False
+setup_host_security: False
+setup_host_users: False
+setup_host_networking: False
+setup_host_disks: False
+setup_host_commons: False

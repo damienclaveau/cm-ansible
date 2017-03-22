@@ -1,0 +1,89 @@
+---
+- name: Install security utilities packages
+  yum: >
+    name={{item}}
+    state=latest
+  with_items:
+   - openssl-perl
+   - openssl-devel
+  tags: 
+   - yum
+   - ssl
+
+- name: Create security related folders
+  file: >
+    name={{item}}
+    state=directory
+    group=cloudera-scm
+    mode=0775
+  with_items:
+   - '{{ssl_x509_dir}}'
+   - '{{ssl_pem_ca_dir}}'
+   - '{{ssl_jks_dir}}'
+   - '{{ssl_pkcs12_dir}}'
+  tags: 
+   - ssl
+
+- name: Create local security related folders
+  sudo: no
+  delegate_to: 127.0.0.1
+  file: >
+    name={{item}}
+    state=directory
+    mode=0700
+  with_items:
+   - '{{local_ssl_key_pwd_file | dirname}}' 
+   - '{{local_ssl_pem_key_file | dirname}}' 
+   - '{{local_ssl_pem_csr_file | dirname}}' 
+   - '{{local_ssl_pem_cert_file | dirname}}' 
+  tags: 
+   - ssl
+
+- name: Create SSL services group
+  group: >
+    name={{ssl_group}}
+    state=present
+    system=yes
+  tags: 
+   - ssl
+
+- name: Create hadoop group if it does not exist
+  group: >
+    name=hadoop
+    state=present
+    system=yes
+  tags: 
+   - ssl
+
+# add ssl users
+- name: Found out which ssl users exist
+  shell:  getent passwd {{item}}
+  ignore_errors: yes
+  register: valid_users
+  with_items: ssl_users
+
+- name: Create missing users
+  user: >
+    name={{item.item}} 
+    groups=hadoop,{{ssl_group}}
+  when: item.rc != 0
+  with_items: valid_users.results
+  tags:
+    - users
+
+- name: add existing users to ssl group
+  user: name={{item.item}} groups={{ssl_group}} append=yes
+  when: item.rc == 0
+  with_items: valid_users.results
+  tags:
+    - users
+
+#- name: make sure impala is in hive group if it was just created
+#  user: name=impala groups=hive append=yes
+#  tags:
+#    - users
+
+- include: ssl-prep-pem-ca.yml
+- include: ssl-prep-pem-cert.yml
+- include: ssl-prep-pkcs12.yml
+- include: ssl-prep-jks.yml

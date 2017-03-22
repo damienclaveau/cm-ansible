@@ -1,0 +1,178 @@
+---
+#################################################
+# Install ldap packages
+
+# tasks file for roles/ldap_service
+# Assuming this always run a redhat based system
+- name: Install the openldap and required Packages for RedHat
+  sudo: yes
+  yum: > 
+    name={{ item }} 
+    state=installed
+  with_items:
+    - openldap-servers 
+    - openldap-clients 
+    - krb5-server-ldap 
+    - cyrus-sasl 
+    - cyrus-sasl-ldap
+
+- name: ensure slapd service auto starts at boot time
+  service: >
+    name=slapd
+    enabled=yes
+
+- name: restart slapd
+  service: > 
+    name=slapd 
+    state=started
+
+- name: Setup ldap db config
+  copy: >
+    src="DB_CONFIG"
+    dest="/var/lib/ldap/DB_CONFIG"
+    backup=True
+    owner=ldap
+    group=ldap
+  tags:
+    - ldap   
+
+########################################################
+## Add / Replace OpenLDAP schema
+
+- name: generate the SSHA encoding for root password secret
+  shell: slappasswd -s {{ iam_ldap_bind_passwd }}
+  register: iam_ldap_bind_passwd_hash
+  tags:
+    - ldap
+
+# If sasl has been configured, please ensure it is disabled
+- name: disable sasl  
+  file: >
+     path="/etc/sasl2/slapd.conf"
+     state=absent
+  tags:
+    - ldap
+    - sasl
+
+- name: restart slapd
+  service:
+    name: 'slapd'
+    state: 'restarted'
+
+## Setup Manager Access
+
+- name: Create LDAP Manager account
+  template: >
+    src=ldapmanager.ldif.j2
+    dest="{{ work_dir }}/ldapmanager.ldif"
+  tags:
+    - ldap
+
+## This fails if it runs for a second time because olcDbIndex
+- name: Install LDAP cn=Manager account
+  shell: "ldapmodify -Y EXTERNAL -H ldapi:/// -f {{work_dir}}/ldapmanager.ldif"
+  register: command_result
+  failed_when: "(command_result.rc != 0) and (command_result.rc != 20) and (command_result.rc != 68) and (command_result.rc != 16) "
+  tags:
+    - ldap
+
+# Error codes 20,68 and 16 are returned if the object already exist or if you are trying
+# delete an object that already exist
+- name: fail the play if the error code is not 20
+  fail: msg="Error in Running DB Tuning script"
+  when: (command_result.rc != 0) and (command_result.rc != 20) and (command_result.rc != 68) and (command_result.rc != 16)
+
+- name: debug ignored error
+  debug: >
+    msg="ERROR Code {{ command_result.rc }} is ignored {{ command_result.stderr }}"
+  when: command_result.rc != 0
+
+- name: Create manager access ldif config
+  template: >
+    src=changemanageracl.ldif.j2 
+    dest="{{work_dir}}/changemanageracl.ldif"
+  tags:
+    - ldap
+
+- name: Allow cn=Manager to update cn=config
+  shell: "ldapmodify -Y EXTERNAL -H ldapi:/// -f {{work_dir}}/changemanageracl.ldif"
+  tags:
+    - ldap
+
+- name: enable sasl
+  copy: >
+     src="sasl-slapd.conf"
+     dest="/etc/sasl2/slapd.conf"
+     owner=root
+     group=root
+     mode=0644
+  notify:
+    - restart slapd
+  tags:
+    - ldap
+    - sasl
+
+########################################################
+# Include missing ldap ldap strecures
+- name: "import missing ldap schemas"
+  shell: ldapadd -x -D "{{ iam_ldap_bind_dn }}" -w {{ iam_ldap_bind_passwd }}  -H ldapi:// -f "/etc/openldap/schema/{{item}}.ldif"
+  register: commands_results
+  failed_when: (commands_results.rc != 0) and (commands_results.rc != 20) and (commands_results.rc != 68) and (commands_results.rc != 80)
+  with_items:
+    - corba
+    - core
+    - cosine
+    - duaconf
+    - dyngroup
+    - inetorgperson
+    - java
+    - misc
+    - openldap
+    - ppolicy
+    - collective
+  notify:
+    - restart slapd
+  tags:
+    - ldap
+
+############################################################
+# Initialize the LDAP root and create base objects
+
+- name: stop slapd
+  service: >
+    name=slapd 
+    state=stopped
+  tags:
+    - ldap
+
+# No need to escape special caracters like in shell
+- name: "remove old nis schema"
+  file: >
+    path="/etc/openldap/slapd.d/cn=config/cn=schema/cn={8}nis.ldif"
+    state="absent"
+  tags:
+    - ldap
+
+- name: "setup rfc2307bis schema"
+  copy: >
+     src="cn={8}rfc2307bis.ldif"
+     dest="/etc/openldap/slapd.d/cn=config/cn=schema/cn={8}rfc2307bis.ldif"
+  tags:
+    - ldap
+
+- name: Set LDAP config ownership
+  file: >
+     path="/etc/openldap/slapd.d/cn=config/cn=schema"
+     mode=0744
+     recurse=yes
+     state=directory
+     group="{{ iam_ldap_user }}"
+     owner="{{ iam_ldap_user }}"
+  tags:
+    - ldap
+    - permissions
+
+- name: start slapd
+  service: name=slapd state=started
+  tags:
+    - ldap

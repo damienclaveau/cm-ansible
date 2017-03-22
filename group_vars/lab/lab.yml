@@ -1,0 +1,59 @@
+---
+dns_domain: ""
+
+dns_service_ips:
+ - ""
+
+cm_host: "172.31.12.238"
+parcel_version: "5.8.4-1.cdh5.8.4.p0.5"
+prepare_image: False
+
+iam_kerberos_enabled: False
+iam_kdc_realm: ""
+iam_kdc_host: ""
+iam_kdc_admin_princ: "kadmin/admin@{{iam_kdc_realm}}"
+iam_kdc_cdh_princ: "cloudera-scm/admin@{{iam_kdc_realm}}"
+iam_kdc_hdfs_princ: "hdfs@{{iam_kdc_realm}}"
+iam_kdc_cloudera_princ: "cloudera@{{iam_kdc_realm}}"
+
+
+iam_ldap_enabled: False
+iam_sssd_enabled: False
+iam_ldap_host: ""
+iam_ldap_url: "ldap://{{iam_ldap_host}}"
+iam_ldap_base_dn: ""
+iam_ldap_bind_dn: "cn=Manager,{{iam_ldap_base_dn}}"
+iam_ldap_kerberos_dn: 'ou=Kerberos,{{ iam_ldap_base_dn }}'
+iam_ldap_services_dn: 'ou=Services,{{iam_ldap_base_dn}}'
+iam_ldap_users_dn: 'ou=Users,{{iam_ldap_base_dn}}'
+iam_ldap_groups_dn: 'ou=Groups,{{iam_ldap_base_dn}}'
+iam_ldap_bind_kdc_dn: "cn=kdc-service,{{iam_ldap_services_dn}}"
+iam_ldap_bind_kadm_dn: "cn=adm-service,{{iam_ldap_services_dn}}"
+iam_ldap_bind_cloudera_dn: "uid=cloudera-service,{{iam_ldap_services_dn}}"
+iam_ldap_policies_dn: "ou=Policies,{{iam_ldap_base_dn}}"
+iam_ldap_password_policy_dn: "cn=password5MaxAttempts,{{iam_ldap_policies_dn}}"
+
+jre_17_path: '/usr/java/jdk1.7.0_67-cloudera/jre'
+
+# Use public servers from the pool.ntp.org project.
+ntp_primary: "0.centos.pool.ntp.org"
+ntp_servers:
+ - "0.centos.pool.ntp.org"
+ - "1.centos.pool.ntp.org"
+ - "2.centos.pool.ntp.org"
+ - "3.centos.pool.ntp.org"
+
+date_timezone: "Europe/Paris"
+
+admin_email: ""
+
+nameservices:
+  - urls: ""
+    mounts: "/"
+
+hs2_ldap_server: ""
+hs2_krb_server: ""
+
+#namenodes_urls: 
+#  - "http://nn.hadoop.suty-ops.com:50070"
+#  - "http://nn02.hadoop.suty-ops.com:50070"

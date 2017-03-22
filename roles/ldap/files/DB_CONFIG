@@ -1,0 +1,4 @@
+set_cachesize 0 10485760 0
+set_lg_regionmax 262144
+set_lg_bsize 2097512
+set_flags DB_LOG_AUTOREMOVE

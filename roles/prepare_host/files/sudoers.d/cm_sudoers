@@ -1,0 +1,51 @@
+#sudoers for Bigdata
+#do not forget to put #includedir /etc/sudoers.d in /etc/sudoers
+
+%platform-admins ALL=(ALL) NOPASSWD:ALL
+
+#CLOUDERA MANAGER
+%cloudera-scm ALL=NOPASSWD:/etc/init.d/cloudera-scm-server*, /sbin/service cloudera-scm-server* *
+%cloudera-scm ALL=NOPASSWD:/etc/init.d/cloudera-scm-agent , /sbin/service cloudera-scm-agent *
+%cloudera-scm ALL=NOPASSWD:/usr/bin/yum -y install cloudera*
+
+#CLOUDERA SERVICES
+%cloudera-scm ALL=(zookeeper) NOPASSWD:ALL
+%cloudera-scm ALL=(yarn) NOPASSWD:ALL
+%cloudera-scm ALL=(mapred) NOPASSWD:ALL
+%cloudera-scm ALL=(hue) NOPASSWD:ALL
+%cloudera-scm ALL=(hive) NOPASSWD:ALL
+%cloudera-scm ALL=(hdfs) NOPASSWD:ALL
+%cloudera-scm ALL=(llama) NOPASSWD:ALL
+%cloudera-scm ALL=(impala) NOPASSWD:ALL
+%cloudera-scm ALL=(sqoop) NOPASSWD:ALL
+%cloudera-scm ALL=(solr) NOPASSWD:ALL
+%cloudera-scm ALL=(sqoop2) NOPASSWD:ALL
+%cloudera-scm ALL=(sentry) NOPASSWD:ALL
+%cloudera-scm ALL=(spark) NOPASSWD:ALL
+%cloudera-scm ALL=(kms) NOPASSWD:ALL
+%cloudera-scm ALL=(oozie) NOPASSWD:ALL
+
+#HAPROXY
+%haproxy ALL=NOPASSWD:/etc/init.d/haproxy , /sbin/service haproxy *
+
+#POSTGRES
+%cloudera-scm ALL=(postgres) NOPASSWD:ALL
+%postgres ALL=(postgres) NOPASSWD: /bin/cat /var/lib/pgsql/data/pg_log/* , /usr/bin/pg_dump , /usr/bin/pg_dumpall , /usr/bin/psql
+%postgres ALL=NOPASSWD:/bin/cat /var/lib/pgsql/data/pg_log/* , /usr/bin/pg_dump , /usr/bin/pg_dumpall , /usr/bin/psql
+%postgres ALL=NOPASSWD:/sbin/service postgresql * , /etc/init.d/postgresql
+
+#NAMED
+%cloudera-scm ALL=NOPASSWD:/etc/init.d/named , /sbin/service named *
+
+#SLAPD
+%cloudera-scm ALL=NOPASSWD:/etc/init.d/slapd , /sbin/service slapd *
+
+#KDC
+%cloudera-scm ALL=NOPASSWD:/etc/init.d/krb5kdc , /sbin/service krb5kdc *
+%cloudera-scm ALL=NOPASSWD:/etc/init.d/kadmin , /sbin/service kadmin *
+
+#Rscript
+%cloudera-scm ALL=NOPASSWD:/usr/bin/Rscript
+
+#Truecrypt
+%cloudera-scm ALL=NOPASSWD:/bin/mount, /bin/umount, /usr/local/bin/truecrypt

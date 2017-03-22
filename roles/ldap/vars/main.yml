@@ -1,0 +1,3 @@
+---
+# vars file for roles/ldap_service
+krb5-ldap-version: "1.10.3"

@@ -1,0 +1,49 @@
+dn: {{ iam_ldap_base_dn }}
+changetype: add
+objectClass: dcObject
+objectClass: organization
+dc: {{ iam_ldap_base_dn.split("=")[1].split(",")[0] }}
+o:  {{ iam_ldap_base_dn.split("=")[1].split(",")[0] }}
+
+dn: {{iam_ldap_services_dn}}
+objectClass: organizationalUnit
+ou: Services
+
+dn: {{iam_ldap_bind_cloudera_dn}}
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Cloudera service account
+sn: Cloudera service account
+uid: cloudera-service
+userPassword: {{ iam_ldap_bind_ro_passwd_hash.stdout }}
+
+dn: {{iam_ldap_kerberos_dn}}
+changetype: add
+objectClass: organizationalRole
+objectClass: top
+cn: Kerberos Realms
+ou: Kerberos
+
+dn: {{iam_ldap_bind_kdc_dn}}
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: kdc-service
+sn: KDC Service
+userPassword: {{ iam_ldap_bind_kdc_passwd_hash.stdout }}
+
+dn: {{iam_ldap_bind_kadm_dn}}
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: adm-service
+sn: KDC Adm Service
+userPassword: {{ iam_ldap_bind_adm_passwd_hash.stdout }}
+
+dn: {{iam_ldap_users_dn}}
+objectClass: organizationalUnit
+ou: Users

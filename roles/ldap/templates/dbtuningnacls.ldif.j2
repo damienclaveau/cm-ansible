@@ -1,0 +1,16 @@
+dn: olcDatabase={2}hdb,cn=config
+changetype: modify
+add: olcAccess
+olcAccess: {0}to dn.base="" by * read
+olcAccess: {1}to dn.base="cn=Subschema" by * read
+olcAccess: {2}to attrs=userPassword,userPKCS12 by self write by * auth
+olcAccess: {3}to attrs=shadowLastChange by self write by * read
+olcAccess: {4}to dn.subtree="{{iam_ldap_kerberos_dn}}" by dn.exact="{{iam_ldap_bind_kdc_dn}}" read by dn.exact="{{iam_ldap_bind_kadm_dn}}" write by * none
+olcAccess: {5}to dn.subtree="{{iam_ldap_users_dn}}" by dn.exact="{{iam_ldap_bind_kdc_dn}}" read by dn.exact="{{iam_ldap_bind_kadm_dn}}" write by * read
+olcAccess: {6}to * by * read
+-
+replace: olcDbConfig
+olcDbConfig: {0}set_cachesize 0 10485760 0
+olcDbConfig: {1}set_lg_regionmax 262144
+olcDbConfig: {2}set_lg_bsize 2097512
+olcDbConfig: {4}set_flags DB_LOG_AUTOREMOVE

@@ -1,0 +1,100 @@
+---
+############# JAVA / JKS format conversion################
+#### JKS Truststore ####
+- name: Push keyutil jar to ease JKS format management
+  copy: >
+    src={{ssl_keyutil_jar_file}}
+    dest={{ssl_jks_dir}}
+    mode=0755
+  tags:
+   - ssl
+
+- name: check if trust store file exists
+  stat: >
+    path={{ssl_jks_truststore_file}}
+  register: ssl_jks_truststore_file_exists
+  tags:
+   - ssl
+
+- name: Convert PEM CA certs to JKS truststore format
+  command: >
+    java -jar {{ssl_jks_dir}}/{{ssl_keyutil_jar_file}} 
+    -e {{ssl_pem_ca_chain_file}}
+    -F -i
+    -n {{ssl_jks_truststore_file}} 
+    -p cloudera
+  when: ssl_ca_chain.changed == True or ssl_jks_truststore_file_exists.stat.exists == False
+  tags: 
+   - ssl
+
+- name: Apply files permissions to JKS truststore
+  file: >
+    path={{ssl_jks_truststore_file}}
+    state=file
+    group={{ssl_group}}
+    mode=0444
+  tags:
+   - ssl
+
+#### JKS Keystore ####
+- name: Cleanup any previous temp JAVA keystore
+  file: >
+    path="{{ssl_jks_keystore_file}}.temp"
+    state=absent
+  tags:
+   - ssl
+
+- name: check if JKS keystore exists
+  stat: >
+    path="{{ssl_jks_keystore_file}}"
+  register: ssl_jks_keystore_file_exists
+  tags:
+   - ssl
+
+- name: Creates temp JAVA keystore with host key + certificate 
+  command: >
+    keytool -importkeystore 
+    -srckeystore {{ssl_pkcs12_keystore_file}} 
+    -srcstoretype PKCS12 
+    -srcstorepass {{ lookup('password', local_ssl_key_pwd_file) }} 
+    -alias bigdatahost 
+    -deststorepass {{ lookup('password', local_ssl_key_pwd_file) }} 
+    -destkeypass {{ lookup('password', local_ssl_key_pwd_file) }} 
+    -destkeystore {{ssl_jks_keystore_file}}.temp
+  when: ssl_key.changed == True or ssl_cert.changed == True or ssl_ca_chain.changed == True or ssl_jks_keystore_file_exists.stat.exists == False
+  tags:
+   - ssl
+
+#- name: Add cacerts to temp JAVA keystore 
+#  command: >
+#    keytool -importkeystore
+#    -srckeystore {{ssl_jks_truststore_file}}
+#    -srcstorepass cloudera
+#    -deststorepass {{ lookup('password', local_ssl_key_pwd_file) }}
+#    -destkeystore {{ssl_jks_keystore_file}}.temp
+#  when: ssl_key.changed == True or ssl_cert.changed == True or ssl_ca_chain.changed == True
+#  tags:
+#   - ssl
+
+- name: Replace JAVA keystore with temp
+  command: >
+    mv "{{ssl_jks_keystore_file}}.temp" "{{ssl_jks_keystore_file}}"
+  when: ssl_key.changed == True or ssl_cert.changed == True or ssl_ca_chain.changed == True or ssl_jks_keystore_file_exists.stat.exists == False
+  tags:
+   - ssl
+
+- name: Apply files permissions to JKS keystore
+  file: >
+    path="{{ssl_jks_keystore_file}}"
+    state=file
+    group={{ssl_group}}
+    mode=0440
+  tags:
+   - ssl
+
+- name: Cleanup
+  file: >
+    path="{{ssl_jks_keystore_file}}.temp"
+    state=absent
+  tags:
+   - ssl

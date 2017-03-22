@@ -1,0 +1,21 @@
+---
+########## WORK_DIR ############# 
+- name: Set Work directory
+  set_fact:
+    work_dir: "~/ansible"
+  
+- name: Create Work directory
+  file: >
+    path="{{work_dir}}"
+    state=directory 
+
+################################################
+## Configure LDAP
+
+- include: setup_ldap_base.yml
+- include: setup_ldap_kdc.yml
+- include: setup_ldap_schema.yml
+- include: setup_ldap_ssl.yml
+  when: enable_ssl
+- include: setup_ldap_strecture.yml
+- include: setup_ldap_ppolicy.yml

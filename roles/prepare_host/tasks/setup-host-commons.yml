@@ -1,0 +1,238 @@
+---
+- name: Python lib selinux
+  yum: >
+    name=libselinux-python
+    state=latest
+  when: prepare_image
+
+- name: Install extra yum repository
+  copy: >
+    src={{item}}
+    dest=/etc/yum.repos.d
+    mode=0664
+    backup=yes
+  with_fileglob:
+   - yum.repos.d/*
+  when: prepare_image
+  tags: 
+   - yum
+
+- name: Add a Cloudera Repository Key.
+  shell: >
+    rpm --import https://archive.cloudera.com/redhat/cdh/RPM-GPG-KEY-cloudera
+  when: prepare_image
+  tags: 
+   - yum
+
+- name: Install base rpm packages
+  yum: >
+    name={{item}}
+    state=latest
+  with_items:
+  - oracle-j2sdk1.7
+  - libselinux-python
+  - openldap-clients
+  - openldap-devel
+  - krb5-workstation
+  - openssl-devel
+  - openssl-perl
+  - openssl-static
+  - ntp
+  - ftp
+  - ntpdate
+  - unzip
+  - parted
+  - sssd
+  - sssd-tools
+  - oddjob-mkhomedir
+  - cloudera-manager-agent
+  - cloudera-manager-daemons
+  when: prepare_image
+  tags:
+   - yum
+
+- name: Configure krb5.conf
+  template: >
+    src=krb5.conf.j2
+    dest=/etc/krb5.conf
+    mode=0664
+    backup=yes
+  when: iam_kerberos_enabled
+  tags: 
+   - kdc
+
+- name: Configure ldap.conf
+  template: >
+    src=ldap.conf.j2
+    dest=/etc/openldap/ldap.conf
+    mode=0644
+    backup=yes
+  when: iam_ldap_enabled
+  tags:
+   - ldap
+
+- name: Configure sssd.conf
+  template: >
+    src=sssd.conf.j2
+    dest=/etc/sssd/sssd.conf
+    mode=0600
+    backup=yes
+  when: iam_sssd_enabled
+  tags:
+   - sssd
+
+- name: Run authconfig to enable sssd
+  command: >
+    authconfig --enableldaptls --enablemkhomedir --enablesssd --enablesssdauth --update
+  when: iam_sssd_enabled
+  tags:
+   - ldap
+
+- name: Enable sssd service autostart and start service
+  service: >
+    name=sssd
+    enabled=yes
+    state=started
+  when: iam_sssd_enabled
+  tags:
+   - ldap
+
+- name: Configure system auth pam.d to include sssd
+  copy: >
+    src=pam.d/system-auth-ac
+    dest=/etc/pam.d/system-auth-ac
+    mode=0664
+    backup=yes
+  notify: "restart sssd"
+  when: iam_sssd_enabled
+  tags: 
+   - ldap
+
+- name: Configure password auth pam.d to include sssd
+  copy: >
+    src=pam.d/password-auth-ac
+    dest=/etc/pam.d/password-auth-ac
+    mode=0664
+    backup=yes
+  notify: "restart sssd"
+  when: iam_sssd_enabled
+  tags: 
+   - ldap
+
+
+- name: Enable JAVA JCE Encryption on oracle-j2sdk1.7
+  copy: >
+    src=UnlimitedJCEPolicy1.7/
+    dest={{jre_17_path}}/lib/security
+    mode=0644
+    backup=yes
+  tags:
+   - java
+
+- name: Setup java symbolic links
+  file: >
+    state="link"
+    src="{{item.path}}"
+    dest="{{item.link}}"
+    force=yes
+  with_items:
+    - {name: 'java', link: '/usr/bin/java', path: '{{jre_17_path}}/bin/java' }
+    - {name: 'javac', link: '/usr/bin/javac', path: '{{jre_17_path}}/bin/javac' }
+    - {name: 'keytool', link: '/usr/bin/keytool', path: '{{jre_17_path}}/bin/keytool' }
+    - {name: 'javaws', link: '/usr/bin/javaws', path: '{{jre_17_path}}/bin/javaws' }
+
+- name: Disable iptables
+  service: >
+    name=sssd
+    enabled=no
+    state=stopped
+  tags:
+   - ldap
+
+- name: Enable ntpd service autostart
+  service: >
+    name=ntpd
+    enabled=yes
+  tags:
+   - date
+
+- name: start ntpd daemon
+  service: >
+    name=ntpd
+    state=started
+  tags:
+   - date
+
+- name: Configure ntp.conf
+  template: >
+    src=ntp.conf.j2
+    dest=/etc/ntp.conf
+    mode=0664
+    backup=yes
+  notify:
+   - reload ntpd daemon
+  tags:
+   - date
+
+- name: Configure timezone
+  file: >
+    name=/etc/localtime
+    owner=root
+    group=root
+    mode=0644
+    state=link
+    force=yes
+    src=/usr/share/zoneinfo/{{date_timezone}}
+  notify:
+   - resync time
+  tags:
+   - date
+
+- name: Disable System swappiness
+  shell: "sysctl vm.swappiness=1"
+  tags: 
+   - performance
+
+- name: disable selinux 
+  lineinfile: > 
+    dest=/etc/selinux/config 
+    regexp="^SELINUX="
+    line=SELINUX=disabled
+  tags:
+   - selinux
+
+#- name: Turn off hugepage defrag
+#  shell: "echo never > /sys/kernel/mm/transparent_hugepage/defrag"
+#  tags: 
+#   - performance
+
+#- name: Make hugepage defrag turned off at boot time
+#  lineinfile: >
+#    dest=/etc/rc.d/rc.local 
+#    state=present
+#    line="echo never > /sys/kernel/mm/transparent_hugepage/defrag"
+#  tags: 
+#   - performance
+
+- name: Set Bigdata sudo rules
+  copy: >
+    src={{item}}
+    dest=/etc/sudoers.d/
+    mode=0440
+    group=root
+    backup=yes
+    validate='visudo -cf %s'
+  with_fileglob:
+   - sudoers.d/*
+  tags:
+   - permissions
+
+- name: Enable sudoers.d
+  lineinfile: >
+    dest=/etc/sudoers 
+    state=present
+    line="#includedir /etc/sudoers.d"
+    backup=yes
+    validate='visudo -cf %s'
+  tags: 
+   - permissions
