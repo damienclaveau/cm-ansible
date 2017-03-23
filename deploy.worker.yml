@@ -17,7 +17,7 @@
         image: "{{image_id}}"
         wait: yes
         group: "{{sg_group}}"
-        count: 1
+        count: "{{instances_count|default(1)}}"
         volumes: "{{volumes}}"
         vpc_subnet_id: "{{vpc_subnet_id}}"
         assign_public_ip: yes
@@ -40,7 +40,7 @@
       with_items: "{{ ec2.instances }}"
     - name: "Wait for instance to be fully up"
       pause:
-        seconds: 15
+        seconds: 10
 
 - name: "Configure worker instance"
   hosts: just_created
@@ -60,7 +60,7 @@
   tasks:
     - name: "Wait for host to contact cloudera manager server"
       pause:
-        seconds: 30
+        seconds: 20
     - name: "Add Node to cluster"
       hosts:
         cm_host: "{{cm_host}}"
@@ -81,12 +81,20 @@
       register: parcel
     - debug: msg="{{parcel}}"
     - name: "Assign host template"
-      template:
+      templates:
         cm_host: "{{cm_host}}"
         cm_username: "{{cm_username}}"
         cm_password: "{{cm_password}}"
         hostname: "{{ item.private_dns_name }}"
         template_name: "m3-medium-worker"
+        action: "apply"
       with_items: "{{ ec2.instances }}"
       register: template
     - debug: msg="{{template}}"
+    - name: "Refresh Cluster"
+      cluster:
+        cm_host: "{{cm_host}}"
+        cm_username: "{{cm_username}}"
+        cm_password: "{{cm_password}}"
+        cluster_name: "{{cluster_name}}"
+        state: "refreshed"

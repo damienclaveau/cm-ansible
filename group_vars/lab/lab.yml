@@ -5,7 +5,9 @@ dns_service_ips:
  - ""
 
 cm_host: "172.31.12.238"
+cluster_name: "cluster"
 parcel_version: "5.8.4-1.cdh5.8.4.p0.5"
+
 prepare_image: False
 
 iam_kerberos_enabled: False

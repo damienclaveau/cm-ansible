@@ -122,6 +122,7 @@ def main():
                                   version=cm_version)
         cluster = resource.get_cluster(cluster_name)
 	template = cluster.get_host_template(template_name)
+        cms = ClouderaManager(resource)        
     except ApiException as e:
         module.fail_json(changed=changed,
                          msg="Can't connect to CM API: {0}".format(e))

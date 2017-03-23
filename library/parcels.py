@@ -150,12 +150,10 @@ def main():
             break
           if parcel.state.errors:
             raise Exception(str(parcel.state.errors))
-          time.sleep(15) # check again in 15 seconds
+          time.sleep(5) # check again in 15 seconds
         parcel.activate()
-	
-	if restart_cluster:
-          module.exit_json(changed=True, msg="wtf")
-          restart_cluster(cluster)
+	#if restart_cluster:
+        #  restart_cluster(cluster)
         
 	module.exit_json(changed=True, rc=0)
       except Exception as e:

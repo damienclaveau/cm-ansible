@@ -1,0 +1,9 @@
+- hosts: localhost
+  tasks:
+    - name: "Refresh Cluster"
+      cluster:
+        cm_host: "{{cm_host}}"
+        cm_username: "{{cm_username}}"
+        cm_password: "{{cm_password}}"
+        cluster_name: "{{cluster_name}}"
+        state: "refreshed"
