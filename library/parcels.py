@@ -90,7 +90,7 @@ def main():
             cm_version=dict(required=False, type='int', default=10),
             cluster_name=dict(required=False, type='str',default='cluster'),
             parcel_version=dict(required=False, type='str'),
-            restart_cluster=dict(required=False, type='str',default='True'),
+            restart_cluster=dict(required=False, type='bool',default='False'),
             action=dict(choices=['download', 'distribute'])
         )
     )
@@ -123,8 +123,7 @@ def main():
         module.fail_json(changed=changed,
                          msg="Can't connect to CM API: {0}".format(e))
 
-    def restart_cluster():
-        global cluster
+    def restart_cluster(cluster):
         cluster.stop().wait()
         cluster.start().wait()
 
@@ -137,9 +136,7 @@ def main():
             break
           if parcel.state.errors:
             raise Exception(str(parcel.state.errors))
-          print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
           time.sleep(15) # check again in 15 seconds
-        print "downloaded CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
         module.exit_json(changed=True, rc=0)
       except Exception as e:
         module.fail_json(changed=changed, msg="{0}".format(e))
@@ -149,17 +146,16 @@ def main():
 	parcel.start_distribution()
         while True:
           parcel = cluster.get_parcel('CDH', parcel_version)
-	  if parcel.stage in ['DISTRIBUTED','ATVIVATED']:
+	  if parcel.stage in ['DISTRIBUTED','ACTIVATED']:
             break
           if parcel.state.errors:
             raise Exception(str(parcel.state.errors))
-          print "progress: %s / %s" % (parcel.state.progress, parcel.state.totalProgress)
           time.sleep(15) # check again in 15 seconds
-        print "distributed CDH parcel version %s on cluster %s" % (parcel_version, cluster_name)
         parcel.activate()
 	
 	if restart_cluster:
-          restart_cluster()
+          module.exit_json(changed=True, msg="wtf")
+          restart_cluster(cluster)
         
 	module.exit_json(changed=True, rc=0)
       except Exception as e:

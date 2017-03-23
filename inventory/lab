@@ -1,6 +1,7 @@
 # It happens that I'm using only one machine  my cluster but if you had more this
 # will actually make more sense
 [lab]
+localhost
 54.186.42.110
 54.244.101.121
 54.218.112.78

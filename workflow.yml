@@ -1,30 +1,30 @@
 - hosts: localhost
   tasks:
-    - hosts:
-        cm_host: localhost
-        cm_username: admin
-        cm_password: admin
-        hostname: ip-172-31-4-72.us-west-2.compute.internal
-        action: add
-      register: cm
+#    - hosts:
+#        cm_host: 172.31.12.238
+#        cm_username: admin
+#        cm_password: admin
+#        hostname: ip-172-31-13-144.us-west-2.compute.internal
+#        action: add
+#      register: cm
     
-    - debug: var=cm
+#    - debug: var=cm
 
-    - parcels:
-        cm_host: localhost
+#    - parcels:
+#        cm_host: 172.31.12.238
+#        cm_username: admin
+#        cm_password: admin
+#        parcel_version: 5.8.4-1.cdh5.8.4.p0.5
+#        action: distribute
+#      register: parcel
+#    - debug: var=parcel
+
+    - templates:
+        cm_host: 172.31.12.238
         cm_username: admin
         cm_password: admin
-        parcel_version: 5.8.4-1.cdh5.8.4.p0.5
-        action: distribute
-      register: parcel
-    - debug: var=parcel
-
-    - template:
-        cm_host: localhost
-        cm_username: admin
-        cm_password: admin
-        hostname: ip-172-31-4-72.us-west-2.compute.internal
-        template_name: DataNode
+        hostname: ip-172-31-5-122.us-west-2.compute.internal
+        template_name: "m3-medium-worker"
       register: template
 
     - debug: var=template
